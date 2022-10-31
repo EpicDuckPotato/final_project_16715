@@ -9,7 +9,7 @@ np.set_printoptions(suppress=True)
 
 # check_sos: checks if a polynomial is SOS
 # ARGUMENTS
-# poly: an object of class pydrake.symbolic.Polynomial, which can be created from a polynomial pydrake Expression
+# input_poly: an object of class pydrake.symbolic.Polynomial, which can be created by passing a polynomial pydrake Expression to the Polynomial constructor
 # v: a numpy array, where each element of the array is a pydrake.symbolic.Variable.
 # This can be created by pydrake.symbolic.MakeVectorContinuousVariable
 # RETURN: True/False indicating whether the polynomial is SOS
