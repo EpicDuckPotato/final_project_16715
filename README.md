@@ -12,7 +12,7 @@ Install Mosek using pip, as described [here](https://docs.mosek.com/10.0/install
 Install Drake using apt, as described [here](https://drake.mit.edu/apt.html#stable-releases).
 
 Folders:
-- sos-env: conda environment including all packages and dependencies
+<!-- - sos-env: conda environment including all packages and dependencies -->
 - examples: examples to test installed packages 
 - src: sources of self-developed packages/modules/functions
 - test: test source codes
