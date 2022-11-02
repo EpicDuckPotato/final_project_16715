@@ -2,6 +2,8 @@ from pydrake.symbolic import *
 import numpy as np
 from scipy.linalg import solve_continuous_are, expm
 import matplotlib.pyplot as plt
+import sys
+sys.path.append('src')
 
 from verification import *
 from pendulum import *
@@ -22,7 +24,7 @@ def main(args=None):
   K = np.linalg.solve(R, B.transpose()@S)
   lqr_policy = LQRPolicy(xgoal, ugoal, S, K)
 
-  # Find roa (to make a function)
+  # TODO: Find roa (to make a function in controller.py)
 
   xg = xgoal
   policy = lqr_policy

@@ -1,5 +1,8 @@
 from pydrake.symbolic import *
 import numpy as np
+import sys
+sys.path.append('src')
+
 from verification import *
 
 np.set_printoptions(linewidth=np.inf)
