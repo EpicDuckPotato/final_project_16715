@@ -1,25 +1,10 @@
+'''DYNAMICS MODEL OF PENDULUM
+All parameters are unit values
+'''
+
 import numpy as np
 from pydrake.symbolic import cos, sin
 from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian
-
-# ALL PARAMETERS ARE UNIT VALUES
-
-# def symbolic_dynamics_u(state, t, u):   # 
-#   th = state[0]
-#   thdot = state[1]
-#   c = cos(th)
-#   s = sin(th)
-#   thddot = u[0] - thdot - s
-#   return np.array([thdot, thddot])
-
-# def symbolic_dynamics(state, t, policy):
-#   th = state[0]
-#   thdot = state[1]
-#   u = policy.get_u(state, t)
-#   c = cos(th)
-#   s = sin(th)
-#   thddot = u[0] - thdot - s
-#   return np.array([thdot, thddot])
 
 class Pendulum(object):
   def __init__(self):

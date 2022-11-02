@@ -1,3 +1,7 @@
+'''THIS MODULE TO TEST THE DYNAMICS MODEL AND LQR CONTROLLER
+Plot the stabilized trajectory at the end
+'''
+
 from pydrake.symbolic import *
 import numpy as np
 from scipy.linalg import solve_continuous_are, expm
@@ -23,7 +27,7 @@ def main(args=None):
   lqr_policy = LQRPolicy(xgoal, ugoal, S, K)
 
   dt = 0.01
-  N = 600
+  N = 700
   thist = dt*np.linspace(0, N)
   xhist = np.zeros((n, N))
   xhist[:, 0] = np.array([3, 2])

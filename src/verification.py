@@ -1,3 +1,6 @@
+'''SOS VERIFICATION
+'''
+
 import mosek
 from mosek.fusion import *
 from pydrake.symbolic import *

@@ -1,3 +1,7 @@
+'''CONTROLLER AND ROA FINDING
+
+'''
+
 import numpy as np
 from pydrake.symbolic import *
 from verification import *
