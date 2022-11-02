@@ -10,7 +10,7 @@ np.set_printoptions(suppress=True)
 # check_sos: checks if a polynomial is SOS
 # ARGUMENTS
 # input_poly: an object of class pydrake.symbolic.Polynomial, which can be created by passing a polynomial pydrake Expression to the Polynomial constructor
-# v: a numpy array, where each element of the array is a pydrake.symbolic.Variable.
+# w: a numpy array, where each element of the array is a pydrake.symbolic.Variable.
 # This can be created by pydrake.symbolic.MakeVectorContinuousVariable
 # RETURN: True/False indicating whether the polynomial is SOS
 def check_sos(input_poly, w, verbose=False):
@@ -21,9 +21,9 @@ def check_sos(input_poly, w, verbose=False):
   # The max degree in our basis is half the degree of the input polynomial
   degree = input_poly.TotalDegree()//2 
 
-  basis = [Expression(1)]
+  basis = [Expression(1)] # Build basis, start from bias value 1
   for d in range(1, degree + 1):
-    combs = combinations_with_replacement(w, r=d)
+    combs = combinations_with_replacement(w, r=d) # Unordered
     for p in combs:
       basis.append(np.prod(p))
 
@@ -31,7 +31,7 @@ def check_sos(input_poly, w, verbose=False):
 
   Q = MakeMatrixContinuousVariable(num_basis, num_basis, 'Q')
   Qflat = Q.flatten()
-  basis_times_Q = Polynomial(basis@Q@basis, w)
+  basis_times_Q = Polynomial(basis@Q@basis, w)  # without w, all variables in m are considered as indeterminates
 
   with Model("sdo1") as M:
     Qmosek = M.variable("Q", Domain.inPSDCone(num_basis))
@@ -46,17 +46,19 @@ def check_sos(input_poly, w, verbose=False):
       # coeff is what multiplies the monomial. It's a linear combination of elements of Q, e.g.
       # a00*Q[0, 0] + a01*Q[1, 1] + ...
       # Here, we get the coefficients a00, a01 to set up the LHS of our constraint.
-      LHS_coeffs = np.reshape([coeff.Differentiate(q).Evaluate() for q in Qflat], Q.shape)
+      LHS_coeffs = np.reshape([coeff.Differentiate(q).Evaluate() for q in Qflat], Q.shape)  
 
-      # Now we get the RHS, i.e. a00*Q[0, 0] + a01*Q[1, 1] + ... = RHS
+      # Now we get the RHS, i.e. a00*Q[0, 0] + a01*Q[1, 1] + ... = RHS 
       if monom in input_poly_coeff_dict:
-        RHS = input_poly_coeff_dict[monom].Evaluate()
+        RHS = input_poly_coeff_dict[monom].Evaluate() # scalar
       else:
         # If the monomial doesn't have any coefficients in input_poly, that implies the coefficient is zero
         RHS = 0.0
 
       # Constraints
-      M.constraint('c' + str(cidx), Expr.dot(Matrix.dense(LHS_coeffs), Qmosek), Domain.equalsTo(RHS))
+      M.constraint('c' + str(cidx), Expr.dot(Matrix.dense(LHS_coeffs), Qmosek), Domain.equalsTo(RHS)) # dot returns scalar
+      # TODO: optimize code
+      # do not have to evaluate full matrix because Qmosek is symmetric
       cidx += 1
 
     M.solve()
