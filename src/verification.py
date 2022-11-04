@@ -64,7 +64,7 @@ def check_sos(V, dV, rho, w, deg_lam=2, eps=0.001, verbose=False):
       # Here, we get the coefficients a00, a01 to set up the LHS of our constraint.
       L_QL = np.reshape([coef.Differentiate(q).Evaluate() for q in Q_L.flatten()], Q_L.shape)  
 
-      # Now we get the RHS, i.e. c + a00*Qla[0, 0] + a01*Qla[1, 1] + ... = RHS 
+      # Now we get the RHS, i.e. const + a00*Qla[0, 0] + a01*Qla[1, 1] + ... = RHS 
       const = 0.0
       if monom in mon2coef_L_dict:
         # check coef and coef_L, that's what we need to equalize
