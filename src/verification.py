@@ -45,7 +45,7 @@ def check_sos(V, dV, rho, w, deg_lam=2, eps=0.001, verbose=False):
   num_basis = len(basis)
   Q_L = MakeMatrixContinuousVariable(num_basis, num_basis, 'Q_L')
   w2 = Polynomial(w@w)
-  L = -dV - eps*w2 + la*(rho - V)
+  L = -dV - eps*w2 - la*(rho - V)
   wQw = Polynomial(basis@Q_L@basis, w)
 
   # Dicts where keys are monomials, values are coefficients
@@ -69,7 +69,7 @@ def check_sos(V, dV, rho, w, deg_lam=2, eps=0.001, verbose=False):
       if monom in mon2coef_L_dict:
         # check coef and coef_L, that's what we need to equalize
         coef_L = mon2coef_L_dict[monom]
-        mon2coef_this_dict = Polynomial(coef_L).monomial_to_coefficient_map()
+        mon2coef_this_dict = Polynomial(coef_L, Variables(Q_la.flatten())).monomial_to_coefficient_map()
         # get the constant before div
         if Monomial() in mon2coef_this_dict:
           const = mon2coef_this_dict[Monomial()]
