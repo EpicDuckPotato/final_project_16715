@@ -11,7 +11,7 @@ np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
 
 # check_sos: finds a set of Lagrange multiplier polynomials [la_1, la_2, ..., la_n]
-# to make the total polynomial L = poly_0 + la_1*poly_1 + ... la_n*poly_n SOS
+# to make the total polynomial L = poly_0 - la_1*poly_1 - ... la_n*poly_n SOS
 # ARGUMENTS
 # poly0, object of class pydrake.symbolic.Polynomial
 # w: a numpy array, where each element of the array is a pydrake.symbolic.Variable.
