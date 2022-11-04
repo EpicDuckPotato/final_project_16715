@@ -57,7 +57,49 @@ def integrate(x, u, dynamics, dt):  # RK4
   k4 = dynamics(x4, u)
   return x + (dt/6)*(k1 + 2*k2 + 2*k3 + k4)    
 
-# def find_roa(policy, MAX_ITER=50):
 
-#   return rho
+def find_roa(model, policy, MAX_ITER=50):
+  deg_Taylor = 3  # order of Taylor expansion of xerrdot
+  dxg = np.array([0, 0])  # derivative at x goal
+  n, m = model.get_dim()
+ # Construct Lyapunov function: V and dV
+  xerr = MakeVectorContinuousVariable(policy.get_xg().shape[0], 'xerr')
+  xerrdot = model.sym_dynamics(xerr + policy.get_xg(), policy) - dxg
+  for i in range(n):
+    xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, deg_Taylor) 
+
+  S = policy.get_S()
+  V = Polynomial(np.dot(xerr, S@xerr))
+  dV = Polynomial(2*np.dot(xerr, S@xerrdot))
+
+  # Line search
+  lower = 0
+  upper = 20
+  rho = 10
+  rho_min = 1e-3
+  
+  i = 0
+  while rho > rho_min:
+      
+    if i > MAX_ITER and lower != 0:
+      break
+
+    print('ROA search iteration %d, testing rho = %f' %(i, rho))
+    is_sos = check_sos(V, dV, rho, xerr)
+
+    if is_sos:
+      lower = rho
+      rho = (rho + upper)/2
+    else:
+      upper = rho
+      rho = (rho + lower)/2
+
+    i += 1
+
+  if lower == 0:
+    print('No region of attraction')
+
+  rho = lower
+  print('Finished ROA search with rho = %f' %(rho))
+  return rho
   
