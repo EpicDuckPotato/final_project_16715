@@ -71,29 +71,39 @@ def find_roa(model, policy, MAX_ITER=50):
   S = policy.get_S()
   V = Polynomial(np.dot(xerr, S@xerr))
   dV = Polynomial(2*np.dot(xerr, S@xerrdot))
+  w = MakeVectorContinuousVariable(n, 'w')
+  eps = 0.001 # choose epsilon
+  la_degs = [2]  # choose degree of lambdas
+  la_SOS = [True] # if lambda is SOS
 
-  # Line search
-  lower = 0
-  upper = 20
-  rho = 10
-  rho_min = 1e-3
-  
+  rho = 5
+  rho_prev = 0.0
+  TOL_RHO = 1e-3
+  lower = 0.0
   i = 0
-  while rho > rho_min:
+  # Find a bracket of rho
+  is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
+  while is_sos:
+    rho = rho*2
+    is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
+  upper = rho
+  rho = (lower + upper)/2
+  # binary search
+  while (rho - rho_prev) > TOL_RHO:
       
-    if i > MAX_ITER and lower != 0:
+    if i > MAX_ITER:
       break
 
     print('ROA search iteration %d, testing rho = %f' %(i, rho))
-    is_sos = check_sos(V, dV, rho, xerr)
+    is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
 
     if is_sos:
       lower = rho
-      rho = (rho + upper)/2
     else:
       upper = rho
-      rho = (rho + lower)/2
 
+    rho_prev = lower
+    rho = (lower + upper)/2
     i += 1
 
   if lower == 0:

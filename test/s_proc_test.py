@@ -33,7 +33,7 @@ def gen_V(w):
 def gen_Vdot(w):
   x = w[0]
   y = w[1]
-  return Polynomial(-0.5*x**2 - 0.5*y**2 + 1.9) # x\dot = Ax with eig(A) = -0.5, -0.5
+  return Polynomial(0.5*x**2 + 0.5*y**2 - 1.5) # x\dot = Ax with eig(A) = -0.5, -0.5
 
 size_w = 2
 deg_la = 2

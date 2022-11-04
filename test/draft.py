@@ -6,3 +6,5 @@ dic = f.monomial_to_coefficient_map()
 one = Expression(1)
 a = Monomial()
 const = dic[a]
+a=[1,2]+[3,4]
+print(a)
