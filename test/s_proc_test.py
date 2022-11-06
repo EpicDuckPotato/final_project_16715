@@ -28,12 +28,12 @@ np.set_printoptions(suppress=True)
 def gen_V(w):
   x = w[0]
   y = w[1]
-  return Polynomial(0.5*x**2 + 0.5*y**2) 
+  return Polynomial(x**2 + y**2) 
 
 def gen_Vdot(w):
   x = w[0]
   y = w[1]
-  return Polynomial(0.5*x**2 + 0.5*y**2 - 1.5) # x\dot = Ax with eig(A) = -0.5, -0.5
+  return Polynomial(x**2 + y**2 - 1) # x\dot = Ax with eig(A) = -0.5, -0.5
 
 size_w = 2
 deg_la = 2

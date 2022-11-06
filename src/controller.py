@@ -88,7 +88,7 @@ def find_roa(model, policy, MAX_ITER=50):
     is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
   upper = rho
   rho = (lower + upper)/2
-  # binary search
+  # line search
   while (rho - rho_prev) > TOL_RHO:
       
     if i > MAX_ITER:
@@ -113,3 +113,21 @@ def find_roa(model, policy, MAX_ITER=50):
   print('Finished ROA search with rho = %f' %(rho))
   return rho
   
+
+def find_roa_sample(model, policy):
+  deg_Taylor = 3  # order of Taylor expansion of xerrdot
+  dxg = np.array([0, 0])  # derivative at x goal
+  n, m = model.get_dim()
+  # Construct Lyapunov function: V and dV
+  xerr = MakeVectorContinuousVariable(policy.get_xg().shape[0], 'xerr')
+  xerrdot = model.sym_dynamics(xerr + policy.get_xg(), policy) - dxg
+  for i in range(n):
+    xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, deg_Taylor) 
+
+  S = policy.get_S()
+  V = Polynomial(np.dot(xerr, S@xerr))
+  dV = Polynomial(2*np.dot(xerr, S@xerrdot))
+
+  rho = check_sos_sample(V, dV, xerr)
+  print('Finished ROA search with rho = %f' %(rho))
+  return rho
