@@ -3,28 +3,19 @@ sys.path.append('src')
 from sampling import *
 import numpy as np
 import matplotlib.pyplot as plt
-from n_link_cartpole import *
 from controller import *
+from verification import *
 from scipy.linalg import solve_continuous_are, expm
+from pendulum import *
 
 def main(args=None):
-  # Test on a circle
-  f = lambda x: x[0]**2 + x[1]**2 - 25
-  grad_fn = lambda x: np.array([2*x[0], 2*x[1]])
-  samples = np.array(sample_isocontours(f, grad_fn, 2, 100, 1))
-  plt.scatter(samples[:, 0], samples[:, 1])
-  plt.show()
+  # Test on pendulum
+  xgoal = np.array([np.pi, 0])
+  ugoal = np.array([0])
 
-  # Test on n-link cartpole
-  N = 2 # Number of revolute joints. There is always one prismatic joint, controlling the cart
-  link_length = 1
-  link_mass = 1
-
-  model = NLinkCartpole(N, link_length, link_mass)
+  model = Pendulum()
   nx, nu = model.get_dim()
   # Infinite-horizon LQR
-  xgoal = np.zeros(nx)
-  ugoal = np.zeros(nu)
   A, B = model.lin_dynamics(xgoal, ugoal)
   Q = np.eye(nx)
   R = np.eye(nu)
@@ -52,6 +43,12 @@ def main(args=None):
   samples = np.array(samples)
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.show()
+
+  w = MakeVectorContinuousVariable(nx, 'w')
+  V = np.array([x@S@x for x in samples])
+  degV = 2
+  rho = check_sos_sample_no_sym(V, w, samples, degV)
+  print(rho)
 
 if __name__ == '__main__':
   main()

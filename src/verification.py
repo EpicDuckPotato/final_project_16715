@@ -127,54 +127,75 @@ def get_basis(w, deg):
 	return basis
 
 
-def check_sos_sample(sym_V, sym_Vdot, w):
+def check_sos_sample(sym_V, sym_Vdot, w, x=None):
   # TODO: Find samples x: Vdot(x) = 0
 	# test with this x for test_SDP_sample.py
-	x = np.array([[3, 4],
-								[4, 3]])
-	num_samples = x.shape[0]
+  if x is None:
+    x = np.array([[3, 4], \
+                  [4, 3]])
+  num_samples = x.shape[0]
 	# Get V(xi) values
-	V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in x])
+  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in x])
 	# solve SPD on samples
-	d = 1
-	deg = sym_V.TotalDegree() + 2*d
-	basis = get_basis(w, deg)
-	num_basis = len(basis)
-	psi = np.zeros((num_basis,))
-	xxd = [0]
+  d = 1
+  deg = sym_V.TotalDegree() + 2*d
+  basis = get_basis(w, deg)
+  num_basis = len(basis)
+  psi = np.zeros((num_basis,))
+  xxd = [0]
 
-	for xi in x:
-		this_basis = np.array([this.Evaluate(dict(zip(w, xi)))
-													for this in basis])
-		this_xxd = (xi@xi)**d
-		psi = np.vstack([psi, this_basis])
-		xxd.append(this_xxd)
-		
-	psi = psi[1:]
-	xxd = xxd[1:]
-	rho = solve_SDP_samples(V, psi, xxd)
-	return rho
+  for xi in x:
+    this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
+    this_xxd = (xi@xi)**d
+    psi = np.vstack([psi, this_basis])
+    xxd.append(this_xxd)
+  	
+  psi = psi[1:]
+  xxd = xxd[1:]
+  rho = solve_SDP_samples(V, psi, xxd)
+  return rho
 
+def check_sos_sample_no_sym(V, w, x, degV):
+  num_samples = x.shape[0]
+  # solve SPD on samples
+  d = 1
+  deg = degV + 2*d
+  basis = get_basis(w, deg)
+  num_basis = len(basis)
+  psi = np.zeros((num_basis,))
+  xxd = [0]
+
+  for xi in x:
+    this_basis = np.array([this.Evaluate(dict(zip(w, xi)))
+    											for this in basis])
+    this_xxd = (xi@xi)**d
+    psi = np.vstack([psi, this_basis])
+    xxd.append(this_xxd)
+
+  psi = psi[1:]
+  xxd = xxd[1:]
+  rho = solve_SDP_samples(V, psi, xxd)
+  return rho
 
 def solve_SDP_samples(V, basis, xxd):
-	with Model("sdo2") as M:
-		rho = M.variable(Domain.greaterThan(0))
-		num_basis = basis.shape[1]
-		P = M.variable(Domain.inPSDCone(num_basis))
+  with Model("sdo2") as M:
+    rho = M.variable(Domain.greaterThan(0))
+    num_basis = basis.shape[1]
+    P = M.variable(Domain.inPSDCone(num_basis))
 
-		for i in range(basis.shape[0]):
-			# r = xxd[i] * (V[i] - rho) - basis[i].T@P@basis[i]
-			term1 = Expr.mul(xxd[i], Expr.sub(V[i], rho))
-			term2 = Expr.mul(Expr.mul(basis[i].reshape(1,num_basis), P), 
-											basis[i].reshape(num_basis,1))
-			r = Expr.sub(term1, term2)
-			M.constraint(r, Domain.equalsTo(0))
+    for i in range(basis.shape[0]):
+      # r = xxd[i] * (V[i] - rho) - basis[i].T@P@basis[i]
+      term1 = Expr.mul(xxd[i], Expr.sub(V[i], rho))
+      term2 = Expr.mul(Expr.mul(basis[i].reshape(1,num_basis), P), 
+      								basis[i].reshape(num_basis,1))
+      r = Expr.sub(term1, term2)
+      M.constraint(r, Domain.equalsTo(0))
 
-		M.objective(ObjectiveSense.Maximize, rho)
-		M.solve()
-		# print(result.get_solution_result())
-		status = M.getPrimalSolutionStatus()
-		P_sol = P.level()
-		rho_sol = rho.level()[0]
+    M.objective(ObjectiveSense.Maximize, rho)
+    M.solve()
+    # print(result.get_solution_result())
+    status = M.getPrimalSolutionStatus()
+    P_sol = P.level()
+    rho_sol = rho.level()[0]
 
-	return rho_sol
+  return rho_sol
