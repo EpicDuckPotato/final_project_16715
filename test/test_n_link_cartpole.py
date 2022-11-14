@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append('src')
-from n_link_cartpole import *
+from n_link_cartpole_sympy import *
+# from n_link_cartpole import *
 from controller import *
 
 def main(args=None):
-  N = 2 # Number of revolute joints. There is always one prismatic joint, controlling the cart
+  N = 5 # Number of revolute joints. There is always one prismatic joint, controlling the cart
   link_length = 1
   link_mass = 1
 
