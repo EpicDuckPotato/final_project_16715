@@ -7,9 +7,10 @@ from pydrake.symbolic import cos, sin
 from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian
 
 class VanderPol(object):
-  def __init__(self):
+  def __init__(self, mu=1):
     self.m = 1
     self.n = 2
+    self.mu = mu
 
   def get_dim(self):
     return self.n, self.m
@@ -17,7 +18,7 @@ class VanderPol(object):
   def dynamics(self, state, u):
     x0 = state[0]
     x1 = state[1]
-    dx0 = (1 - x1**2)*x0 - x1 + u[0]
+    dx0 = self.mu*(1 - x1**2)*x0 - x1 + u[0]
     dx1 = x0
     return np.array([dx0, dx1])
 
