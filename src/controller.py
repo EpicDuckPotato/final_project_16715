@@ -94,7 +94,7 @@ def find_roa(model, policy, MAX_ITER=50):
     if i > MAX_ITER:
       break
 
-    print('ROA search iteration %d, testing rho = %f' %(i, rho))
+    # print('ROA search iteration %d, testing rho = %f' %(i, rho))
     is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
 
     if is_sos:
@@ -110,7 +110,7 @@ def find_roa(model, policy, MAX_ITER=50):
     print('No region of attraction')
 
   rho = lower
-  print('Finished ROA search with rho = %f' %(rho))
+  print('Finished original ROA search with rho = %f' %(rho))
   return rho
   
 
@@ -129,5 +129,5 @@ def find_roa_sample(model, policy):
   dV = Polynomial(2*np.dot(xerr, S@xerrdot))
 
   rho = check_sos_sample(V, dV, xerr)
-  print('Finished ROA search with rho = %f' %(rho))
+  print('Finished quotient-ring ROA search with rho = %f' %(rho))
   return rho
