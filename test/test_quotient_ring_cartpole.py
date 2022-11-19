@@ -42,7 +42,7 @@ def main(args=None):
   for i in range(100):
     if len(samples) >= num_samples:
       break
-    samples.extend(sample_isocontours(Vdot_fn, grad_fn, nx, num_samples, alpha=0.1))
+    samples.extend(sample_isocontours(Vdot_fn, grad_fn, nx, num_samples, xgoal, std=1))
   samples = np.array(samples)
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.show()

@@ -11,7 +11,7 @@ def main(args=None):
   # Test on a circle
   f = lambda x: x[0]**2 + x[1]**2 - 25
   grad_fn = lambda x: np.array([2*x[0], 2*x[1]])
-  samples = np.array(sample_isocontours(f, grad_fn, 2, 100, 1))
+  samples = np.array(sample_isocontours(f, grad_fn, 2, 100, np.zeros(2)))
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.show()
 
@@ -48,7 +48,7 @@ def main(args=None):
   for i in range(100):
     if len(samples) >= num_samples:
       break
-    samples.extend(sample_isocontours(Vdot_fn, grad_fn, nx, num_samples, alpha=0.1))
+    samples.extend(sample_isocontours(Vdot_fn, grad_fn, nx, num_samples, np.zeros(nx)))
   samples = np.array(samples)
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.show()
