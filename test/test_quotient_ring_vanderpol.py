@@ -1,6 +1,5 @@
 import sys
 sys.path.append('src')
-from sampling import *
 import numpy as np
 import matplotlib.pyplot as plt
 from controller import *

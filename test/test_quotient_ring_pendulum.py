@@ -1,6 +1,5 @@
 import sys
 sys.path.append('src')
-from sampling import *
 import numpy as np
 import matplotlib.pyplot as plt
 from controller import *
@@ -20,6 +19,7 @@ def main(args=None):
   Q = np.eye(nx)
   R = np.eye(nu)
   S = solve_continuous_are(A, B, Q, R)
+  print(S)
   K = np.linalg.solve(R, B.transpose()@S)
   policy = LQRPolicy(xgoal, ugoal, S, K)
 
@@ -35,7 +35,7 @@ def main(args=None):
     return grad
 
   samples = []
-  num_samples = 100
+  num_samples = 50
   for i in range(100):
     if len(samples) >= num_samples:
       break
