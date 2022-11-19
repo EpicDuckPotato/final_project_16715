@@ -12,6 +12,23 @@ class VanderPol(object):
     self.n = 2
     self.mu = mu
 
+  # Known Lyapunov function for the time-reversed oscillator (corresponding to mu = -1)
+  def known_V(self, state):
+    x0 = state[0]
+    x1 = state[1]
+    V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
+        (0.18442) * x0**2 + (0.016538) * x0**4 + \
+        (-0.34562) * x0 * x1 + (0.064721) * x0 * x1**3 + \
+        (0.10556) * x0**2 * x1**2 + (-0.060367) * x0**3 * x1
+    return V
+
+  def known_Vgrad(self, state):
+    x0 = state[0]
+    x1 = state[1]
+    Vgrad = np.array([2*(0.18442) * x0 + 4*(0.016538) * x0**3 + (-0.34562) * x1 + (0.064721) * x1**3 + 2*(0.10556) * x0 * x1**2 + 3*(-0.060367) * x0**2 * x1, \
+                     2*(0.28557) * x1 + 4*(0.0085754) * x1**3 + (-0.34562) * x0 + 3*(0.064721) * x0 * x1**2 + 2*(0.10556) * x0**2 * x1 + (-0.060367) * x0**3])
+    return Vgrad
+
   def get_dim(self):
     return self.n, self.m
 

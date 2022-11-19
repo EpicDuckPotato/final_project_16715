@@ -6,6 +6,13 @@ import numpy as np
 from pydrake.symbolic import *
 from verification import *
 
+class ZeroPolicy(object):
+  def __init__(self, nu):
+    self.nu = nu
+
+  def get_u(self, x, t):
+    return np.zeros(self.nu)
+
 class LQRPolicy(object):
   def __init__(self, xg, ug, S, K):
     self.xg = np.copy(xg)
@@ -73,6 +80,61 @@ def find_roa(model, policy, MAX_ITER=50):
   dV = Polynomial(2*np.dot(xerr, S@xerrdot))
   w = MakeVectorContinuousVariable(n, 'w')
   eps = 0.001 # choose epsilon
+  la_degs = [2]  # choose degree of lambdas
+  la_SOS = [True] # if lambda is SOS
+
+  rho = 5
+  rho_prev = 0.0
+  TOL_RHO = 1e-3
+  lower = 0.0
+  i = 0
+  # Find a bracket of rho
+  is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
+  while is_sos:
+    rho = rho*2
+    is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
+  upper = rho
+  rho = (lower + upper)/2
+  # line search
+  while (rho - rho_prev) > TOL_RHO:
+      
+    if i > MAX_ITER:
+      break
+
+    print('ROA search iteration %d, testing rho = %f' %(i, rho))
+    is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
+
+    if is_sos:
+      lower = rho
+    else:
+      upper = rho
+
+    rho_prev = lower
+    rho = (lower + upper)/2
+    i += 1
+
+  if lower == 0:
+    print('No region of attraction')
+
+  rho = lower
+  print('Finished ROA search with rho = %f' %(rho))
+  return rho
+
+def find_passive_roa(model, MAX_ITER=50):
+  deg_Taylor = 3  # order of Taylor expansion of xerrdot
+  dxg = np.array([0, 0])  # derivative at x goal
+  n, m = model.get_dim()
+ # Construct Lyapunov function: V and dV
+  xerr = MakeVectorContinuousVariable(n, 'xerr')
+  xerrdot = model.sym_dynamics(xerr, ZeroPolicy(m))
+  for i in range(n):
+    xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, deg_Taylor) 
+
+  V = Polynomial(model.known_V(xerr))
+  dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
+  w = MakeVectorContinuousVariable(n, 'w')
+  # eps = 0.001 # choose epsilon
+  eps = 0 # choose epsilon
   la_degs = [2]  # choose degree of lambdas
   la_SOS = [True] # if lambda is SOS
 
