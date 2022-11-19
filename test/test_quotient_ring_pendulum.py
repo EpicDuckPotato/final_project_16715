@@ -23,25 +23,18 @@ def main(args=None):
   K = np.linalg.solve(R, B.transpose()@S)
   policy = LQRPolicy(xgoal, ugoal, S, K)
 
-  # V = xerr@S@xerr
-  # Vdot = 2*xerr@S@xdot
-  def f(x):
-    xerr = x - xgoal
-    return 2*xerr@S@model.dynamics(x, policy.get_u(x))
-
-  def grad_fn(x):
-    A, B = model.lin_dynamics(xgoal, ugoal)
-    xdot = model.dynamics(x, policy.get_u(x))
-    xerr = x - xgoal
-    grad = 2*(xdot@S + xerr@S@(A - B@K))
-    return grad
+  xerr = MakeVectorContinuousVariable(policy.get_xg().shape[0], 'xerr')
+  xerrdot = model.sym_dynamics(xerr + policy.get_xg(), policy)
+  for i in range(nx):
+    xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, 3) 
+  Vdot = Polynomial(2*np.dot(xerr, S@xerrdot))
 
   samples = []
   num_samples = 50
   for i in range(100):
     if len(samples) >= num_samples:
       break
-    samples.extend(sample_isocontours(f, grad_fn, nx, num_samples, xgoal, std=1))
+    samples.extend(sample_isocontours(Vdot.ToExpression(), xerr, num_samples, std=1))
   samples = np.array(samples)
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.show()
