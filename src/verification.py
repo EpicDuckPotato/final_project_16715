@@ -187,6 +187,10 @@ def solve_SDP_samples(V, basis, xxd):
     M.solve()
 
     status = M.getPrimalSolutionStatus()
+    if status == SolutionStatus.Unknown:
+         print('Mosek cannot solve with these samples. Please run again or increase the number of samples.')
+         return 0.0
+    
     P_sol = P.level()
     rho_sol = rho.level()[0]
 
