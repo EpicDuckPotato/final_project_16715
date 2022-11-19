@@ -203,24 +203,31 @@ def solve_SDP_samples(V, basis, xxd):
   return rho_sol
 
 
-# f should be a scalar-valued function, and grad_fn should give its gradient wrt x.
-# This just applies Newton's method repeatedly in random directions, i.e.
-# we pick a direction x = alpha*t + beta, then find roots along this line
-def sample_isocontours(f, grad_fn, nx, num_samples, alpha, max_newton_iter=10):
+def sample_isocontours(f, xvars, num_samples, std=1):
+  nx = len(xvars)
   samples = []
   for i in range(num_samples):
-    alpha = np.random.normal(size=(nx,))
-    beta = np.random.normal(size=(nx,))
-    t = alpha*np.random.normal()
-    for j in range(max_newton_iter):
-      x = alpha*t + beta
-      if np.linalg.norm(x, ord=np.inf) > 10:
-        break
-      r = f(x)
-      if np.abs(r) < 1e-5:
-        samples.append(np.copy(x))
-        break
+    # Search direction
+    alpha = np.random.normal(size=(nx,), scale=std)
+    beta = np.random.normal(size=(nx,), scale=std)
+    t = MakeVectorContinuousVariable(1, 't')[0]
+    subs_dict = {xvars[j]: alpha[j]*t + beta[j] for j in range(nx)}
+    f_t = Polynomial(f.Substitute(subs_dict))
+    monom_to_coeff = f_t.monomial_to_coefficient_map()
+    coeffs = []
+    for j in range(f_t.TotalDegree() + 1):
+      p = Monomial(t, j)
+      if p in monom_to_coeff:
+        coeffs.append(monom_to_coeff[p].Evaluate())
+      else:
+        coeffs.append(0)
 
-      dr_dt = grad_fn(x)@alpha
-      t -= r/dr_dt
+    roots = np.polynomial.polynomial.polyroots(coeffs)
+    for root in roots:
+      if np.abs(np.imag(root)) < 1e-5:
+        x = alpha*np.real(root) + beta
+        if np.linalg.norm(x, ord=np.inf) < 100:
+          samples.append(x)
+          # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
+
   return samples

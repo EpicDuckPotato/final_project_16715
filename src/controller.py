@@ -124,7 +124,7 @@ def find_passive_roa(model, MAX_ITER=50):
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
   dxg = np.array([0, 0])  # derivative at x goal
   n, m = model.get_dim()
- # Construct Lyapunov function: V and dV
+  # Construct Lyapunov function: V and dV
   xerr = MakeVectorContinuousVariable(n, 'xerr')
   xerrdot = model.sym_dynamics(xerr, ZeroPolicy(m))
   for i in range(n):
