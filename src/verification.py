@@ -14,9 +14,11 @@ from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 from itertools import combinations_with_replacement
 import numpy as np
+import matplotlib.pyplot as plt
 
 np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
+
 
 # check_sos: finds a set of Lagrange multiplier polynomials [la_1, la_2, ..., la_n]
 # to make the total polynomial L = poly_0 - la_1*poly_1 - ... la_n*poly_n SOS
@@ -115,6 +117,7 @@ def check_sos(poly0, w, constraint_poly=[], la_degrees=[], la_sos=[]):
 			return False
 
 
+# Generate monomials                
 def get_basis(w, deg):
 	# w is variables
 	# deg is degree of polynomial
@@ -127,16 +130,24 @@ def get_basis(w, deg):
 	return basis
 
 
-def check_sos_sample(sym_V, sym_Vdot, w, x=None):
-  # TODO: Find samples x: Vdot(x) = 0
-	# test with this x for test_SDP_sample.py
-  if x is None:
-    x = np.array([[3, 4], \
-                  [4, 3]])
-  num_samples = x.shape[0]
-	# Get V(xi) values
-  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in x])
-	# solve SPD on samples
+# Check SOS with sampling method
+def check_sos_sample(sym_V, sym_Vdot, w):
+  # Step 1: get samples from Vdot(x) = 0
+  samples = []
+  num_samples = 20
+  for i in range(num_samples):
+    if len(samples) >= num_samples:
+      break
+    samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, std=1))
+  samples = np.array(samples)
+
+  plt.scatter(samples[:, 0], samples[:, 1])
+  plt.show()
+
+  # Get V(xi) values
+  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
+
+  # Step 2: solve SDP on samples
   d = 1
   deg = sym_V.TotalDegree() + 2*d
   basis = get_basis(w, deg)
@@ -144,7 +155,7 @@ def check_sos_sample(sym_V, sym_Vdot, w, x=None):
   psi = np.zeros((num_basis,))
   xxd = [0]
 
-  for xi in x:
+  for xi in samples:
     this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
     this_xxd = (xi@xi)**d
     psi = np.vstack([psi, this_basis])
@@ -153,32 +164,11 @@ def check_sos_sample(sym_V, sym_Vdot, w, x=None):
   psi = psi[1:]
   xxd = xxd[1:]
   rho = solve_SDP_samples(V, psi, xxd)
+
   return rho
 
 
-def check_sos_sample_no_sym(V, w, x, degV):
-  num_samples = x.shape[0]
-  # solve SPD on samples
-  d = 1
-  deg = degV + 2*d
-  basis = get_basis(w, deg)
-  num_basis = len(basis)
-  psi = np.zeros((num_basis,))
-  xxd = [0]
-
-  for xi in x:
-    this_basis = np.array([this.Evaluate(dict(zip(w, xi)))
-    											for this in basis])
-    this_xxd = (xi@xi)**d
-    psi = np.vstack([psi, this_basis])
-    xxd.append(this_xxd)
-
-  psi = psi[1:]
-  xxd = xxd[1:]
-  rho = solve_SDP_samples(V, psi, xxd)
-  return rho
-
-
+# Solve SDP with samples
 def solve_SDP_samples(V, basis, xxd):
   with Model("sdo2") as M:
     rho = M.variable(Domain.greaterThan(0))
@@ -195,32 +185,43 @@ def solve_SDP_samples(V, basis, xxd):
 
     M.objective(ObjectiveSense.Maximize, rho)
     M.solve()
-    # print(result.get_solution_result())
+
     status = M.getPrimalSolutionStatus()
+    if status == SolutionStatus.Unknown:
+         print('Mosek cannot solve with these samples. Please run again or increase the number of samples.')
+         return 0.0
+    
     P_sol = P.level()
     rho_sol = rho.level()[0]
 
   return rho_sol
 
-
-# f should be a scalar-valued function, and grad_fn should give its gradient wrt x.
-# This just applies Newton's method repeatedly in random directions, i.e.
-# we pick a direction x = alpha*t + beta, then find roots along this line
-def sample_isocontours(f, grad_fn, nx, num_samples, alpha, max_newton_iter=10):
+# Get samples of Vdot(x) = 0 to feed into SDP
+def sample_isocontours(f, xvars, num_samples, std=1):
+  nx = len(xvars)
   samples = []
   for i in range(num_samples):
-    alpha = np.random.normal(size=(nx,))
-    beta = np.random.normal(size=(nx,))
-    t = alpha*np.random.normal()
-    for j in range(max_newton_iter):
-      x = alpha*t + beta
-      if np.linalg.norm(x, ord=np.inf) > 10:
-        break
-      r = f(x)
-      if np.abs(r) < 1e-5:
-        samples.append(np.copy(x))
-        break
+    # Search direction
+    alpha = np.random.normal(size=(nx,), scale=std)
+    beta = np.random.normal(size=(nx,), scale=std)
+    t = MakeVectorContinuousVariable(1, 't')[0]
+    subs_dict = {xvars[j]: alpha[j]*t + beta[j] for j in range(nx)}
+    f_t = Polynomial(f.Substitute(subs_dict))
+    monom_to_coeff = f_t.monomial_to_coefficient_map()
+    coeffs = []
+    for j in range(f_t.TotalDegree() + 1):
+      p = Monomial(t, j)
+      if p in monom_to_coeff:
+        coeffs.append(monom_to_coeff[p].Evaluate())
+      else:
+        coeffs.append(0)
 
-      dr_dt = grad_fn(x)@alpha
-      t -= r/dr_dt
+    roots = np.polynomial.polynomial.polyroots(coeffs)
+    for root in roots:
+      if np.abs(np.imag(root)) < 1e-5:
+        x = alpha*np.real(root) + beta
+        if np.linalg.norm(x, ord=np.inf) < 100:
+          samples.append(x)
+          # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
+
   return samples
