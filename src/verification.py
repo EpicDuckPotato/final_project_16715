@@ -131,14 +131,16 @@ def get_basis(w, deg):
 
 
 # Check SOS with sampling method
-def check_sos_sample(sym_V, sym_Vdot, w):
+def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   # Step 1: get samples from Vdot(x) = 0
   samples = []
-  num_samples = 20
+  # num_samples = 20
+  num_samples = 100
   for i in range(num_samples):
     if len(samples) >= num_samples:
       break
-    samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, std=1))
+    samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, xlb, xub, std=1))
+    # samples.extend(sample_vector_isocontours(np.array([sym_Vdot.ToExpression()]), w, num_samples, std=1))
   samples = np.array(samples)
 
   plt.scatter(samples[:, 0], samples[:, 1])
@@ -197,7 +199,7 @@ def solve_SDP_samples(V, basis, xxd):
   return rho_sol
 
 # Get samples of Vdot(x) = 0 to feed into SDP
-def sample_isocontours(f, xvars, num_samples, std=1):
+def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
   nx = len(xvars)
   samples = []
   for i in range(num_samples):
@@ -220,8 +222,51 @@ def sample_isocontours(f, xvars, num_samples, std=1):
     for root in roots:
       if np.abs(np.imag(root)) < 1e-5:
         x = alpha*np.real(root) + beta
-        if np.linalg.norm(x, ord=np.inf) < 100:
+        if np.all(x >= xlb) and np.all(x <= xub):
           samples.append(x)
           # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
+
+  return samples
+
+# f should now be a vector of Drake expressions. This applies Newton's method
+def sample_vector_isocontours(f, xvars, num_samples, std=1):
+  nx = len(xvars)
+  samples = []
+  for i in range(num_samples):
+    # Randomly sample an initial point
+    x = np.random.normal(size=(nx,), scale=std)
+    max_newton_iter = 100
+    success = False
+
+    # Run Newton
+    for j in range(max_newton_iter):
+      subs_dict = {xvars[k]: x[k] for k in range(nx)}
+      r = np.array([fk.Substitute(subs_dict).Evaluate() for fk in f])
+
+      # Stopping condition
+      if 0.5*r@r < 1e-10:
+        success = True
+        break
+
+      # Search direction
+      J = np.array([[fk.Differentiate(xl).Substitute(subs_dict).Evaluate() for xl in xvars] for fk in f])
+      delta_x, _, _, _ = np.linalg.lstsq(J, -r)
+      
+      # Line search
+      max_line_search = 10
+      alpha = 1
+      b = 0.1
+      for m in range(max_line_search):
+        subs_dict = {xvars[k]: x[k] + delta_x[k] for k in range(nx)}
+        rcand = np.array([fk.Substitute(subs_dict).Evaluate() for fk in f])
+        # Armijo
+        if 0.5*rcand@rcand < 0.5*r@r + b*alpha*r.transpose()@J@delta_x:
+          x += delta_x
+          break
+
+        alpha *= 0.5
+
+    if success:
+      samples.append(x)
 
   return samples

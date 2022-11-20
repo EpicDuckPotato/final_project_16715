@@ -176,7 +176,7 @@ def find_passive_roa(model, MAX_ITER=50):
   print('Finished ROA search with rho = %f' %(rho))
   return rho
   
-def find_passive_roa_sample(model):
+def find_passive_roa_sample(model, xlb, xub):
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
   dxg = np.array([0, 0])  # derivative at x goal
   n, m = model.get_dim()
@@ -190,7 +190,7 @@ def find_passive_roa_sample(model):
   # dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
   dV = Polynomial(sum([V.ToExpression().Differentiate(xerr[i])*xerrdot[i] for i in range(n)]))
 
-  rho = check_sos_sample(V, dV, xerr)
+  rho = check_sos_sample(V, dV, xerr, xlb, xub)
   print('Finished quotient-ring ROA search with rho = %f' %(rho))
   return rho
 

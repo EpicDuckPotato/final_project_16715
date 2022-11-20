@@ -14,7 +14,7 @@ def main(args=None):
   n, m = model.get_dim()
 
   rho = find_passive_roa(model)
-  rho = find_passive_roa_sample(model)
+  rho = find_passive_roa_sample(model, -3, 3)
   print(rho)
 
 if __name__ == '__main__':
