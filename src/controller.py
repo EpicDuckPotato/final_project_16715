@@ -131,7 +131,8 @@ def find_passive_roa(model, MAX_ITER=50):
     xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, deg_Taylor) 
 
   V = Polynomial(model.known_V(xerr))
-  dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
+  dV = Polynomial(sum([V.ToExpression().Differentiate(xerr[i])*xerrdot[i] for i in range(n)]))
+  # dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
   w = MakeVectorContinuousVariable(n, 'w')
   # eps = 0.001 # choose epsilon
   eps = 0 # choose epsilon
@@ -175,6 +176,23 @@ def find_passive_roa(model, MAX_ITER=50):
   print('Finished ROA search with rho = %f' %(rho))
   return rho
   
+def find_passive_roa_sample(model):
+  deg_Taylor = 3  # order of Taylor expansion of xerrdot
+  dxg = np.array([0, 0])  # derivative at x goal
+  n, m = model.get_dim()
+  # Construct Lyapunov function: V and dV
+  xerr = MakeVectorContinuousVariable(n, 'xerr')
+  xerrdot = model.sym_dynamics(xerr, ZeroPolicy(m)) - dxg
+  for i in range(n):
+    xerrdot[i] = TaylorExpand(xerrdot[i], {var: 0 for var in xerr}, deg_Taylor) 
+
+  V = Polynomial(model.known_V(xerr))
+  # dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
+  dV = Polynomial(sum([V.ToExpression().Differentiate(xerr[i])*xerrdot[i] for i in range(n)]))
+
+  rho = check_sos_sample(V, dV, xerr)
+  print('Finished quotient-ring ROA search with rho = %f' %(rho))
+  return rho
 
 def find_roa_sample(model, policy):
   deg_Taylor = 3  # order of Taylor expansion of xerrdot

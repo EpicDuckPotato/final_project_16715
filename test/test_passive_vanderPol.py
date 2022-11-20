@@ -6,14 +6,15 @@ import sys
 sys.path.append('src')
 
 from verification import *
-from vanderPol import *
+from time_reversed_vanderPol import *
 from controller import *
 
 def main(args=None):
-  model = VanderPol(-1)
+  model = TimeReversedVanderPol(-1)
   n, m = model.get_dim()
 
   rho = find_passive_roa(model)
+  rho = find_passive_roa_sample(model)
   print(rho)
 
 if __name__ == '__main__':
