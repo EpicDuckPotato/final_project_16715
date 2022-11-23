@@ -123,8 +123,7 @@ def get_basis(w, deg):
 	# deg is degree of polynomial
 	basis = [Expression(1)] 
 	for d in range(1, deg//2 + 1):
-		combs = combinations_with_replacement([Expression(w[0]),Expression(w[1])],
-																					r=d) # Unordered
+		combs = combinations_with_replacement([Expression(wi) for wi in w], r=d) # Unordered
 		for p in combs:
 			basis.append(np.prod(p))
 	return basis
