@@ -24,7 +24,7 @@ def main(args=None):
   print('Pendulum ROA search')
 
   # rho = find_roa(model, policy)
-  # rho1 = find_roa_sample(model, policy)
-  rho2 = find_roa_simulation_2d(model, policy)  
+  rho1 = find_roa_sample(model, policy)
+  # rho2 = find_roa_simulation_2d(model, policy)  
 if __name__ == '__main__':
   main()

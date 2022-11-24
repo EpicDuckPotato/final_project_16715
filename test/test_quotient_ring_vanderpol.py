@@ -23,7 +23,7 @@ def main(args=None):
   policy = LQRPolicy(xgoal, ugoal, S, K)
 
   print('Van der Pol ROA search')
-  rho = find_roa(model, policy)
+  # rho = find_roa(model, policy)
   rho1 = find_roa_sample(model, policy)
   # rho2 = find_roa_simulation_2d(model, policy)
   

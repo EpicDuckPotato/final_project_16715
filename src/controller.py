@@ -11,7 +11,7 @@ class ZeroPolicy(object):
   def __init__(self, nu):
     self.nu = nu
 
-  def get_u(self, x, t):
+  def get_u(self, x, t=0):
     return np.zeros(self.nu)
   
   def get_xg(self, t=0):
@@ -143,8 +143,8 @@ def find_passive_roa(model, MAX_ITER=50):
   dV = Polynomial(sum([V.ToExpression().Differentiate(xerr[i])*xerrdot[i] for i in range(n)]))
   # dV = Polynomial(np.dot(model.known_Vgrad(xerr), xerrdot))
   w = MakeVectorContinuousVariable(n, 'w')
-  # eps = 0.001 # choose epsilon
-  eps = 0 # choose epsilon
+  eps = 0.001 # choose epsilon
+  # eps = 0 # choose epsilon
   la_degs = [2]  # choose degree of lambdas
   la_SOS = [True] # if lambda is SOS
 
@@ -227,7 +227,7 @@ def find_roa_sample(model, policy):
 def find_roa_simulation_2d(model, policy):
   n, m = model.get_dim()
   dt = 0.1
-  N = 100
+  N = 200
   steps = 200
   xs_eval = np.zeros((n, N))
 
@@ -291,3 +291,5 @@ def find_roa_simulation_2d(model, policy):
 
   # to draw limit cycle, need V=rho or Vdot=0
   return 0
+
+

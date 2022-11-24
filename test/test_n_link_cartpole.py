@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append('src')
-# from n_link_cartpole_sympy import *
-from n_link_cartpole import *
+from n_link_cartpole_sympy import *
+# from n_link_cartpole import *
 from controller import *
 
 def main(args=None):
@@ -17,6 +17,7 @@ def main(args=None):
   nx, nu = model.get_dim()
   # Infinite-horizon LQR
   xgoal = np.zeros(nx)
+  xgoal[2] = 0.1
   ugoal = np.zeros(nu)
   A, B = model.lin_dynamics(xgoal, ugoal)
   Q = np.eye(nx)
@@ -35,10 +36,12 @@ def main(args=None):
   xhist[1, 0] += 0.5 # Start with perturbed first joint angle
 
   for k in range(K-1):
-    uk = lqr_policy.get_u(xhist[:, k])
+    uk = ZeroPolicy(nu).get_u(xhist[:, k])
     temp = integrate(xhist[:, k], uk, model.dynamics, dt)
     xhist[:, k+1] = np.copy(temp)
   
+  # rho2 = find_roa_simulation_2d(model, lqr_policy)
+
   plt.plot(xhist[0,:],xhist[1,:])
   plt.plot(xgoal[0], xgoal[1], color='g', marker="*", markersize=10)
   plt.show()

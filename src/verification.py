@@ -133,39 +133,34 @@ def get_basis(w, deg):
 def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   # Step 1: get samples from Vdot(x) = 0
   samples = []
-  # num_samples = 20
-  num_samples = 100
+  num_samples = 20
+  # num_samples = 100
   for i in range(num_samples):
     if len(samples) >= num_samples:
       break
     samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, xlb, xub, std=1))
     # samples.extend(sample_vector_isocontours(np.array([sym_Vdot.ToExpression()]), w, num_samples, std=1))
-  samples = np.array(samples)
 
+  d = 1
+  deg = sym_V.TotalDegree() + 2*d
+  
+  # Get V(xi) values
+  enough_sample = False
+  while not enough_sample:
+    samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, 1, xlb, xub, std=1))
+    V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
+    samples, V = balancing_V(samples, V)
+    xxd, psi = get_sample_features(w, deg, d, samples)
+    enough_sample = check_genericity(psi) 
+
+  samples = np.array(samples)
+  print(samples.shape)
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.xlim(-2.1, 2.1)
   plt.ylim(-3, 3)
   plt.show()
-
-  # Get V(xi) values
-  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
-
   # Step 2: solve SDP on samples
-  d = 1
-  deg = sym_V.TotalDegree() + 2*d
-  basis = get_basis(w, deg)
-  num_basis = len(basis)
-  psi = np.zeros((num_basis,))
-  xxd = [0]
 
-  for xi in samples:
-    this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
-    this_xxd = (xi@xi)**d
-    psi = np.vstack([psi, this_basis])
-    xxd.append(this_xxd)
-  	
-  psi = psi[1:]
-  xxd = xxd[1:]
   rho = solve_SDP_samples(V, psi, xxd)
 
   return rho
@@ -305,3 +300,51 @@ def sample_vector_isocontours(f, xvars, num_samples, std=1):
   return samples
 
 
+def balancing_V(x, V, tol=1e1):
+  balanced = np.max(V) / np.min(V) < tol
+  while not balanced:
+    print('not balanced')
+    idx = [np.argmax(V), np.argmin(V)]
+    # test_x = np.vstack([test_x, x[idx]])
+    x = np.delete(x, idx, axis=0)
+    V = np.delete(V, idx, axis=0)
+    balanced = np.max(V) / np.min(V) < tol
+  return x, V
+
+
+def get_sample_features(w, deg, d, samples):
+  basis = get_basis(w, deg)
+  num_basis = len(basis)
+  psi = np.zeros((num_basis,))
+  xxd = [0]
+
+  for xi in samples:
+    this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
+    this_xxd = (xi@xi)**d
+    psi = np.vstack([psi, this_basis])
+    xxd.append(this_xxd)
+  	
+  psi = psi[1:]
+  xxd = xxd[1:]    
+  return xxd, psi
+
+
+def check_genericity(psi):
+  enough_samples = True
+  m, n = psi.shape
+  n2 = n * (n + 1) / 2
+  m0 = np.min([m, n2])
+  # sub_samples = psi[:m0, :]
+  sub_samples = psi
+
+  c = np.power(sub_samples@sub_samples.T, 2)  # c = q'*q
+  # print('c shape is %s' % str(c.shape))
+  s = np.abs(np.linalg.eig(c)[0])
+  tol = np.max(c.shape) * np.spacing(np.max(s)) * 1e3
+  sample_rank = sum(s > tol)
+  print('sample rank is %s' % sample_rank)
+  if sample_rank == m0 and sample_rank < n2:
+    # meaning m<n2 and sample full rank
+    # print('Insufficient samples!!')
+    enough_samples = False
+  return enough_samples
