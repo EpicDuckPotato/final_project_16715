@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append('src')
-from n_link_cartpole_sympy import *
-# from n_link_cartpole import *
+# from n_link_cartpole_sympy import *
+from n_link_cartpole import *
 from controller import *
 
 def main(args=None):

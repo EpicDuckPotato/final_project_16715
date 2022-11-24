@@ -1,6 +1,8 @@
 import sympy.physics.mechanics as me
 import sympy as sm
 import numpy as np
+from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian, Expression, Monomial
+from itertools import combinations_with_replacement
 
 class NLinkCartpole(object):
   def __init__(self, N, link_length, link_mass):
@@ -70,3 +72,69 @@ class NLinkCartpole(object):
     A = sm.matrix2numpy(F_A, dtype=float)
     B = sm.matrix2numpy(F_B, dtype=float)
     return A, B
+
+  # Converts from sympy to Drake
+  def get_drake_constraints(self, q_pris, c_rev, s_rev, v, vdot, u):
+    nq = 1 + self.N
+    nv = nq
+
+    # Create list of sympy variables
+    cos_vars = [sm.Symbol('c' + str(i)) for i in range(1, nq)]
+    sin_vars = [sm.Symbol('s' + str(i)) for i in range(1, nq)]
+    config_vars = [self.q[0]] + cos_vars + sin_vars
+    v_vars = self.qdot
+    vdot_vars = [sm.Symbol('vdot' + str(i)) for i in range(nv)]
+    sm_vars = config_vars + v_vars + vdot_vars + self.u
+
+    # Create corresponding list of drake variables
+    drake_vars = np.concatenate(([q_pris], c_rev, s_rev, v, vdot, u))
+    var_idx = np.arange(len(drake_vars))
+
+    # We'll be substituting cosines and sines with auxiliary configuration variables
+    cos_subs = [(sm.cos(self.q[i]), 'c' + str(i)) for i in range(1, nq)]
+    sin_subs = [(sm.sin(self.q[i]), 's' + str(i)) for i in range(1, nq)]
+    trig_subs = cos_subs + sin_subs
+
+    sm_constraints = [-self.kane.forcing[i].subs(trig_subs) for i in range(nv)]
+
+    # Get sympy constraints and max degree of any polynomial expression in the dynamics
+    max_deg = 0
+    for i in range(nv):
+      for j in range(nv):
+        sm_constraints[i] += self.kane.mass_matrix[i, j].subs(trig_subs)*vdot_vars[j]
+
+      poly = sm.Poly(sm_constraints[i], sm_vars)
+      if poly.total_degree() > max_deg:
+        max_deg = poly.total_degree()
+
+    # Create bases for sympy and drake
+    drake_basis = []
+    sm_basis = []
+    v_start = 1 + 2*self.N
+    vdot_start = v_start + nv
+    for d in range(max_deg + 1):
+      combs = combinations_with_replacement([idx for idx in var_idx], r=d) # Unordered
+      for p in combs:
+        powers = [0 for idx in var_idx] 
+        valid_monom = True
+        for idx in p:
+          powers[idx] += 1
+          if sum(powers[vdot_start:]) > 1 or (np.any(powers[vdot_start:]) and np.any(powers[v_start:vdot_start])):
+            # We know that there are no products of vdots, products of vdots and us,
+            # products of vdots and vs, or products of vs and us. Filter these monomials out
+            valid_monom = False
+            break
+
+        if valid_monom:
+          drake_basis.append(Monomial({drake_vars[idx]: powers[idx] for idx in var_idx}))
+          sm_basis.append(np.prod([sm_vars[idx]**powers[idx] for idx in var_idx]))
+
+    # M*vdot - f = 0
+    drake_constraints = np.zeros(nv, dtype=Expression)
+    for i in range(nv):
+      poly = sm.Poly(sm_constraints[i], sm_vars)
+      for drake_monom, sm_monom in zip(drake_basis, sm_basis):
+        coeff = poly.coeff_monomial(sm_monom)
+        drake_constraints[i] += coeff*drake_monom
+
+    return drake_constraints

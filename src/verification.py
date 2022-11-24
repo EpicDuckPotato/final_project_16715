@@ -14,9 +14,11 @@ from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
                          MathematicalProgram, MosekSolver)
 from itertools import combinations_with_replacement
 import numpy as np
+import matplotlib.pyplot as plt
 
 np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
+
 
 # check_sos: finds a set of Lagrange multiplier polynomials [la_1, la_2, ..., la_n]
 # to make the total polynomial L = poly_0 - la_1*poly_1 - ... la_n*poly_n SOS
@@ -115,28 +117,38 @@ def check_sos(poly0, w, constraint_poly=[], la_degrees=[], la_sos=[]):
 			return False
 
 
+# Generate monomials                
 def get_basis(w, deg):
 	# w is variables
 	# deg is degree of polynomial
 	basis = [Expression(1)] 
 	for d in range(1, deg//2 + 1):
-		combs = combinations_with_replacement([Expression(w[0]),Expression(w[1])],
-																					r=d) # Unordered
+		combs = combinations_with_replacement([Expression(wi) for wi in w], r=d) # Unordered
 		for p in combs:
 			basis.append(np.prod(p))
 	return basis
 
 
-def check_sos_sample(sym_V, sym_Vdot, w, x=None):
-  # TODO: Find samples x: Vdot(x) = 0
-	# test with this x for test_SDP_sample.py
-  if x is None:
-    x = np.array([[3, 4], \
-                  [4, 3]])
-  num_samples = x.shape[0]
-	# Get V(xi) values
-  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in x])
-	# solve SPD on samples
+# Check SOS with sampling method
+def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
+  # Step 1: get samples from Vdot(x) = 0
+  samples = []
+  # num_samples = 20
+  num_samples = 100
+  for i in range(num_samples):
+    if len(samples) >= num_samples:
+      break
+    samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, xlb, xub, std=1))
+    # samples.extend(sample_vector_isocontours(np.array([sym_Vdot.ToExpression()]), w, num_samples, std=1))
+  samples = np.array(samples)
+
+  plt.scatter(samples[:, 0], samples[:, 1])
+  plt.show()
+
+  # Get V(xi) values
+  V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
+
+  # Step 2: solve SDP on samples
   d = 1
   deg = sym_V.TotalDegree() + 2*d
   basis = get_basis(w, deg)
@@ -144,7 +156,7 @@ def check_sos_sample(sym_V, sym_Vdot, w, x=None):
   psi = np.zeros((num_basis,))
   xxd = [0]
 
-  for xi in x:
+  for xi in samples:
     this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
     this_xxd = (xi@xi)**d
     psi = np.vstack([psi, this_basis])
@@ -153,32 +165,11 @@ def check_sos_sample(sym_V, sym_Vdot, w, x=None):
   psi = psi[1:]
   xxd = xxd[1:]
   rho = solve_SDP_samples(V, psi, xxd)
+
   return rho
 
 
-def check_sos_sample_no_sym(V, w, x, degV):
-  num_samples = x.shape[0]
-  # solve SPD on samples
-  d = 1
-  deg = degV + 2*d
-  basis = get_basis(w, deg)
-  num_basis = len(basis)
-  psi = np.zeros((num_basis,))
-  xxd = [0]
-
-  for xi in x:
-    this_basis = np.array([this.Evaluate(dict(zip(w, xi)))
-    											for this in basis])
-    this_xxd = (xi@xi)**d
-    psi = np.vstack([psi, this_basis])
-    xxd.append(this_xxd)
-
-  psi = psi[1:]
-  xxd = xxd[1:]
-  rho = solve_SDP_samples(V, psi, xxd)
-  return rho
-
-
+# Solve SDP with samples
 def solve_SDP_samples(V, basis, xxd):
   with Model("sdo2") as M:
     rho = M.variable(Domain.greaterThan(0))
@@ -195,8 +186,12 @@ def solve_SDP_samples(V, basis, xxd):
 
     M.objective(ObjectiveSense.Maximize, rho)
     M.solve()
-    # print(result.get_solution_result())
+
     status = M.getPrimalSolutionStatus()
+    if status == SolutionStatus.Unknown:
+         print('Mosek cannot solve with these samples. Please run again or increase the number of samples.')
+         return 0.0
+    
     P_sol = P.level()
     rho_sol = rho.level()[0]
 
@@ -231,3 +226,80 @@ def sample_isocontours(f, xvars, num_samples, std=1):
           # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
 
   return samples
+
+
+# Get samples of Vdot(x) = 0 to feed into SDP
+def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
+  nx = len(xvars)
+  samples = []
+  for i in range(num_samples):
+    # Search direction
+    alpha = np.random.normal(size=(nx,), scale=std)
+    beta = np.random.normal(size=(nx,), scale=std)
+    t = MakeVectorContinuousVariable(1, 't')[0]
+    subs_dict = {xvars[j]: alpha[j]*t + beta[j] for j in range(nx)}
+    f_t = Polynomial(f.Substitute(subs_dict))
+    monom_to_coeff = f_t.monomial_to_coefficient_map()
+    coeffs = []
+    for j in range(f_t.TotalDegree() + 1):
+      p = Monomial(t, j)
+      if p in monom_to_coeff:
+        coeffs.append(monom_to_coeff[p].Evaluate())
+      else:
+        coeffs.append(0)
+
+    roots = np.polynomial.polynomial.polyroots(coeffs)
+    for root in roots:
+      if np.abs(np.imag(root)) < 1e-5:
+        x = alpha*np.real(root) + beta
+        if np.all(x >= xlb) and np.all(x <= xub):
+          samples.append(x)
+          # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
+
+  return samples
+
+
+# f should now be a vector of Drake expressions. This applies Newton's method
+def sample_vector_isocontours(f, xvars, num_samples, std=1):
+  nx = len(xvars)
+  samples = []
+  for i in range(num_samples):
+    # Randomly sample an initial point
+    x = np.random.normal(size=(nx,), scale=std)
+    max_newton_iter = 100
+    success = False
+
+    # Run Newton
+    for j in range(max_newton_iter):
+      subs_dict = {xvars[k]: x[k] for k in range(nx)}
+      r = np.array([fk.Substitute(subs_dict).Evaluate() for fk in f])
+
+      # Stopping condition
+      if 0.5*r@r < 1e-10:
+        success = True
+        break
+
+      # Search direction
+      J = np.array([[fk.Differentiate(xl).Substitute(subs_dict).Evaluate() for xl in xvars] for fk in f])
+      delta_x, _, _, _ = np.linalg.lstsq(J, -r)
+      
+      # Line search
+      max_line_search = 10
+      alpha = 1
+      b = 0.1
+      for m in range(max_line_search):
+        subs_dict = {xvars[k]: x[k] + delta_x[k] for k in range(nx)}
+        rcand = np.array([fk.Substitute(subs_dict).Evaluate() for fk in f])
+        # Armijo
+        if 0.5*rcand@rcand < 0.5*r@r + b*alpha*r.transpose()@J@delta_x:
+          x += delta_x
+          break
+
+        alpha *= 0.5
+
+    if success:
+      samples.append(x)
+
+  return samples
+
+
