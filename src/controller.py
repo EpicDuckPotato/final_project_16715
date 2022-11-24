@@ -145,7 +145,7 @@ def find_passive_roa(model, MAX_ITER=50):
   w = MakeVectorContinuousVariable(n, 'w')
   eps = 0.001 # choose epsilon
   # eps = 0 # choose epsilon
-  la_degs = [2]  # choose degree of lambdas
+  la_degs = [12]  # choose degree of lambdas
   la_SOS = [True] # if lambda is SOS
 
   rho = 5

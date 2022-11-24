@@ -133,7 +133,7 @@ def get_basis(w, deg):
 def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   # Step 1: get samples from Vdot(x) = 0
   samples = []
-  num_samples = 20
+  num_samples = 10
   # num_samples = 100
   for i in range(num_samples):
     if len(samples) >= num_samples:
