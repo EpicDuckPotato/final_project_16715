@@ -145,7 +145,7 @@ def find_passive_roa(model, MAX_ITER=50):
   w = MakeVectorContinuousVariable(n, 'w')
   eps = 0.001 # choose epsilon
   # eps = 0 # choose epsilon
-  la_degs = [12]  # choose degree of lambdas
+  la_degs = [4]  # choose degree of lambdas
   la_SOS = [True] # if lambda is SOS
 
   rho = 5
@@ -166,7 +166,7 @@ def find_passive_roa(model, MAX_ITER=50):
     if i > MAX_ITER:
       break
 
-    print('ROA search iteration %d, testing rho = %f' %(i, rho))
+    # print('ROA search iteration %d, testing rho = %f' %(i, rho))
     is_sos = check_sos(-dV - eps*Polynomial(w@w), xerr, [rho - V], la_degs, la_SOS)
 
     if is_sos:
@@ -263,8 +263,8 @@ def find_roa_simulation_2d(model, policy):
   K = policy.get_K()  
 
   for step in range(steps):
-    if step%N == 0:
-      print('Simulation step %d' %(step))
+    # if step%N == 0:
+      # print('Simulation step %d' %(step))
     errs = x - xd
     for row in range(N):
       for col in range(N):

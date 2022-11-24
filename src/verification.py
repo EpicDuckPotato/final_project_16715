@@ -154,7 +154,7 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
     enough_sample = check_genericity(psi) 
 
   samples = np.array(samples)
-  print(samples.shape)
+ 
   plt.scatter(samples[:, 0], samples[:, 1])
   plt.xlim(-2.1, 2.1)
   plt.ylim(-3, 3)
@@ -342,7 +342,7 @@ def check_genericity(psi):
   s = np.abs(np.linalg.eig(c)[0])
   tol = np.max(c.shape) * np.spacing(np.max(s)) * 1e3
   sample_rank = sum(s > tol)
-  print('sample rank is %s' % sample_rank)
+  # print('sample rank is %s' % sample_rank)
   if sample_rank == m0 and sample_rank < n2:
     # meaning m<n2 and sample full rank
     # print('Insufficient samples!!')
