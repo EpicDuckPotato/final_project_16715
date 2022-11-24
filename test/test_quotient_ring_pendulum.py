@@ -22,8 +22,9 @@ def main(args=None):
   K = np.linalg.solve(R, B.transpose()@S)
   policy = LQRPolicy(xgoal, ugoal, S, K)
   print('Pendulum ROA search')
-  rho = find_roa(model, policy)
-  rho1 = find_roa_sample(model, policy)
 
+  # rho = find_roa(model, policy)
+  # rho1 = find_roa_sample(model, policy)
+  rho2 = find_roa_simulation_2d(model, policy)  
 if __name__ == '__main__':
   main()

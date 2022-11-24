@@ -13,6 +13,13 @@ class ZeroPolicy(object):
 
   def get_u(self, x, t):
     return np.zeros(self.nu)
+  
+  def get_xg(self, t=0):
+    return np.zeros(2)
+  
+  def get_K(self, t=0):
+    return np.zeros(2)
+  
 
 class LQRPolicy(object):
   def __init__(self, xg, ug, S, K):
@@ -219,18 +226,18 @@ def find_roa_sample(model, policy):
 
 def find_roa_simulation_2d(model, policy):
   n, m = model.get_dim()
-  dt = 0.01
+  dt = 0.1
   N = 100
-  steps = 1000
+  steps = 200
   xs_eval = np.zeros((n, N))
 
   if type(model).__name__ == 'Pendulum':
-    xs_eval[0,:] = np.linspace(-2, 2, N)
-    xs_eval[1,:] = np.linspace(0, 2*np.pi, N)
+    xs_eval[0,:] = np.linspace(0, 2*np.pi, N)
+    xs_eval[1,:] = np.linspace(-2*np.pi, 2*np.pi, N)
 
-  if type(model).__name__ == 'VanderPol':
-    xs_eval[0,:] = np.linspace(-10, 10, N)
-    xs_eval[1,:] = np.linspace(-5, 5, N)
+  if type(model).__name__ == 'TimeReversedVanderPol':
+    xs_eval[0,:] = np.linspace(-2.1, 2.1, N)
+    xs_eval[1,:] = np.linspace(-3, 3, N)
 
   # X,Y = np.meshgrid(xs_eval[0,:], xs_eval[1,:])
   # x_grid = []
@@ -251,8 +258,8 @@ def find_roa_simulation_2d(model, policy):
 
   x = np.stack(np.meshgrid(xs_eval[0,:], xs_eval[1,:]), 0)
   xd = policy.get_xg()
-  xd = np.tile(xd.reshape(2, 1, 1), (1, N, N))
-  u = np.zeros((1, N, N))
+  xd = np.tile(xd.reshape(n, 1, 1), (1, N, N))
+  u = np.zeros((N, N))
   K = policy.get_K()  
 
   for step in range(steps):
@@ -261,8 +268,8 @@ def find_roa_simulation_2d(model, policy):
     errs = x - xd
     for row in range(N):
       for col in range(N):
-        u[0, row, col] = -K@errs[:, row, col]
-    x = integrate(x, u, model.dynamics, dt)
+        u[row, col] = -K@errs[:, row, col]
+    x = integrate(x, u, model.dynamics, dt) 
 
   errs = x - xd
   stable_idx = np.abs(errs[0]) < 0.01
@@ -276,10 +283,12 @@ def find_roa_simulation_2d(model, policy):
             np.min(xs_eval[1,:]), np.max(xs_eval[1,:])], 
             aspect='auto', origin='lower')
   
-  plt.scatter(100, 100, color='white', label='Simulation-based ROA Estimate')
+  plt.scatter(N, N, color='white', label='Simulation-based ROA Estimate')
   plt.xlim(np.min(xs_eval[0,:]), np.max(xs_eval[0,:]))
   plt.ylim(np.min(xs_eval[1,:]), np.max(xs_eval[1,:]))
   plt.legend() 
   plt.savefig('conservativity.png')
   plt.show()
+
+  # to draw limit cycle, need V=rho or Vdot=0
   return 0

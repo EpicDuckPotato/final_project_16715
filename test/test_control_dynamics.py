@@ -13,6 +13,7 @@ from verification import *
 from pendulum import *
 from vanderPol import *
 from controller import *
+from time_reversed_vanderPol import *
 
 def test_pendulum(args=None):
   xgoal = np.array([np.pi, 0])
@@ -28,11 +29,11 @@ def test_pendulum(args=None):
   K = np.linalg.solve(R, B.transpose()@S)
   lqr_policy = LQRPolicy(xgoal, ugoal, S, K)
 
-  dt = 0.01
-  N = 700
+  dt = 0.1
+  N = 100
   thist = dt*np.linspace(0, N)
   xhist = np.zeros((n, N))
-  xhist[:, 0] = np.array([3, 2])
+  xhist[:, 0] = np.array([0, 0])
 
   for k in range(N-1):
     uk = lqr_policy.get_u(xhist[:, k])
@@ -47,7 +48,7 @@ def test_vanderPol(args=None):
   xgoal = np.array([0, 0])
   ugoal = np.array([0])
 
-  model = VanderPol(mu=1)
+  model = TimeReversedVanderPol()
   n, m = model.get_dim()
   # Infinite-horizon LQR
   A, B = model.lin_dynamics(xgoal, ugoal)
@@ -57,13 +58,12 @@ def test_vanderPol(args=None):
   K = np.linalg.solve(R, B.transpose()@S)
   lqr_policy = LQRPolicy(xgoal, ugoal, S, K)
 
-  dt = 0.01
-  N = 25000
+  dt = 0.1
+  N = 200
   thist = dt*np.linspace(0, N)
   xhist = np.zeros((n, N))
-  xhist[:, 0] = np.array([-3, -2])
-  print(np.dot(xhist[:, 0], S@xhist[:, 0]))
-  
+  xhist[:, 0] = np.array([1, 2.6])
+  print(model.known_V(xhist[:, 0]))
   for k in range(N-1):
     uk = lqr_policy.get_u(xhist[:, k])
     temp = integrate(xhist[:, k], uk, model.dynamics, dt)
@@ -74,5 +74,5 @@ def test_vanderPol(args=None):
   # plt.show()
 
 if __name__ == '__main__':
-  # test_pendulum()
-  test_vanderPol()
+  test_pendulum()
+  # test_vanderPol()

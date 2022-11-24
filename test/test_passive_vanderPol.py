@@ -10,12 +10,13 @@ from time_reversed_vanderPol import *
 from controller import *
 
 def main(args=None):
-  model = TimeReversedVanderPol(-1)
+  model = TimeReversedVanderPol()
   n, m = model.get_dim()
 
-  rho = find_passive_roa(model)
+  # rho = find_passive_roa(model)
   rho = find_passive_roa_sample(model, -3, 3)
-  print(rho)
+  # print(rho)
+  rho2 = find_roa_simulation_2d(model, ZeroPolicy(m))  
 
 if __name__ == '__main__':
   main()

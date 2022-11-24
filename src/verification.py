@@ -143,6 +143,8 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   samples = np.array(samples)
 
   plt.scatter(samples[:, 0], samples[:, 1])
+  plt.xlim(-2.1, 2.1)
+  plt.ylim(-3, 3)
   plt.show()
 
   # Get V(xi) values
