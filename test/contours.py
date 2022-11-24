@@ -33,6 +33,7 @@ V = (1.8027e-06) + (0.28557) * x1**2 + (0.0085754) * x1**4 + \
         (0.18442) * x2**2 + (0.016538) * x2**4 + \
         (-0.34562) * x2 * x1 + (0.064721) * x2 * x1**3 + \
         (0.10556) * x2**2 * x1**2 + (-0.060367) * x2**3 * x1
+
 Vdot = np.array([[dV.Evaluate(dict(zip(xerr, [xi1, xi2]))) for xi2 in xs_eval[1,:]] for xi1 in xs_eval[0,:]])
 
 levels = np.array([0, 1, 1.25, 2]) 
@@ -42,3 +43,4 @@ CS2 = ax.contour(x1, x2, V, levels=[1], colors='red', label='V = rho')
 ax.clabel(CS, inline=True, fontsize=10)
 ax.set_title('Contours')
 plt.show()
+

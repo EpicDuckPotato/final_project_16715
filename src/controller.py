@@ -239,23 +239,6 @@ def find_roa_simulation_2d(model, policy):
     xs_eval[0,:] = np.linspace(-2.1, 2.1, N)
     xs_eval[1,:] = np.linspace(-3, 3, N)
 
-  # X,Y = np.meshgrid(xs_eval[0,:], xs_eval[1,:])
-  # x_grid = []
-  # u = 
-  
-  # for step in range(steps):
-  #   for i in range(N):
-  #     for j in range(N):
-  #       x = [X[i,j], Y[i,j]]
-  #       uk = policy.get_u(x)
-  #       temp = integrate(x, uk, model.dynamics, dt)
-  #       x = np.copy(temp)
-  #       if np.linalg.norm(x-policy.get_xg()) < 1e-3:
-  #         x_grid.append([X[i,j], Y[i,j]])
-
-  # plt.plot(x_grid[0], x_grid[1])
-  # plt.show()
-
   x = np.stack(np.meshgrid(xs_eval[0,:], xs_eval[1,:]), 0)
   xd = policy.get_xg()
   xd = np.tile(xd.reshape(n, 1, 1), (1, N, N))
