@@ -272,9 +272,8 @@ def find_roa_simulation_2d(model, policy):
     x = integrate(x, u, model.dynamics, dt) 
 
   errs = x - xd
-  stable_idx = np.abs(errs[0]) < 0.01
-  for i in range(1, n):
-    stable_idx = np.logical_and(stable_idx, np.abs(errs[1]) < 0.01)
+  stable_idx = np.logical_and(np.abs(errs[0]) < 0.01, 
+                              np.abs(errs[1]) < 0.01)
 
   image = np.zeros((N, N, 3))
   image[stable_idx] = 1
