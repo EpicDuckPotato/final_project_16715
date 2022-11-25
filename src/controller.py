@@ -227,8 +227,8 @@ def find_roa_sample(model, policy):
 def find_roa_simulation_2d(model, policy):
   n, m = model.get_dim()
   dt = 0.1
-  N = 200
-  steps = 200
+  N = 500
+  steps = 300
   xs_eval = np.zeros((n, N))
 
   if type(model).__name__ == 'Pendulum':
@@ -258,6 +258,22 @@ def find_roa_simulation_2d(model, policy):
   stable_idx = np.logical_and(np.abs(errs[0]) < 0.01, 
                               np.abs(errs[1]) < 0.01)
 
+  indx = []
+  done = False
+  for row in range(N):
+    for col in range(N):
+      if stable_idx[row, col] == True:
+        indx = [row, col]
+        done = True
+        break
+    if done == True:
+      break
+    
+  x_bnd = [xs_eval[0,col], xs_eval[1,row]]
+  print(x_bnd)
+  rho = model.known_V(x_bnd)
+  print('Finished simulation-based ROA search with rho = %f' %(rho))
+
   image = np.zeros((N, N, 3))
   image[stable_idx] = 1
 
@@ -270,9 +286,8 @@ def find_roa_simulation_2d(model, policy):
   plt.ylim(np.min(xs_eval[1,:]), np.max(xs_eval[1,:]))
   plt.legend() 
   plt.savefig('conservativity.png')
-  plt.show()
+  # plt.show()
 
-  # to draw limit cycle, need V=rho or Vdot=0
-  return 0
+  return rho
 
 

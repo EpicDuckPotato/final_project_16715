@@ -38,9 +38,16 @@ Vdot = np.array([[dV.Evaluate(dict(zip(xerr, [xi1, xi2]))) for xi2 in xs_eval[1,
 
 levels = np.array([0, 1, 1.25, 2]) 
 fig, ax = plt.subplots()
-CS1 = ax.contour(x1, x2, Vdot, levels=[0], colors='y', label='dV = 0')
-CS2 = ax.contour(x1, x2, V, levels=[1], colors='red', label='V = rho')
-ax.clabel(CS, inline=True, fontsize=10)
-ax.set_title('Contours')
+# CS1 = ax.contour(x1, x2, Vdot, levels=[0], colors='y', label='dV = 0')
+CS2 = ax.contour(x1, x2, V, levels=[0.99976], colors='red')
+CS3 = ax.contour(x1, x2, V, levels=[1.03362], colors='blue', linestyles='dashed')
+CS4 = ax.contour(x1, x2, V, levels=[1.26559], colors='g')
+
+CSs = [CS2, CS3, CS4]
+proxy = [plt.Rectangle((0,0),1,1,fc = pc.colors)
+        for pc in CSs]
+ax.legend(proxy, ["Inequality", "Sample", "Simulation"], loc='center')
+ax.set_title('Region of Attraction')
+plt.savefig('vanderpol_roa.png')
 plt.show()
 
