@@ -133,7 +133,7 @@ def get_basis(w, deg):
 def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   # Step 1: get samples from Vdot(x) = 0
   samples = []
-  num_samples = 10
+  num_samples = 5
   # num_samples = 100
   for i in range(num_samples):
     if len(samples) >= num_samples:
@@ -154,11 +154,11 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
     enough_sample = check_genericity(psi) 
 
   samples = np.array(samples)
- 
-  plt.scatter(samples[:, 0], samples[:, 1])
-  plt.xlim(-2.1, 2.1)
-  plt.ylim(-3, 3)
-  plt.show()
+  print(f"Number of samples: {len(samples)}")  
+  # plt.scatter(samples[:, 0], samples[:, 1])
+  # plt.xlim(-2.1, 2.1)
+  # plt.ylim(-3, 3)
+  # plt.show()
   # Step 2: solve SDP on samples
 
   rho = solve_SDP_samples(V, psi, xxd)
@@ -278,7 +278,7 @@ def sample_vector_isocontours(f, xvars, num_samples, std=1):
 
       # Search direction
       J = np.array([[fk.Differentiate(xl).Substitute(subs_dict).Evaluate() for xl in xvars] for fk in f])
-      delta_x, _, _, _ = np.linalg.lstsq(J, -r)
+      delta_x, _, _, _ = np.linalg.lstsq(J, -r, rcond=-1)
       
       # Line search
       max_line_search = 10
@@ -300,13 +300,13 @@ def sample_vector_isocontours(f, xvars, num_samples, std=1):
   return samples
 
 
-def balancing_V(x, V, tol=1e1):
+def balancing_V(x, V, tol=5):
   balanced = np.max(V) / np.min(V) < tol
   while not balanced:
-    print('not balanced')
+    # print('not balanced')
     idx = [np.argmax(V), np.argmin(V)]
     # test_x = np.vstack([test_x, x[idx]])
-    x = np.delete(x, idx, axis=0)
+    x = (np.delete(x, idx, axis=0)).tolist()
     V = np.delete(V, idx, axis=0)
     balanced = np.max(V) / np.min(V) < tol
   return x, V
@@ -320,7 +320,7 @@ def get_sample_features(w, deg, d, samples):
 
   for xi in samples:
     this_basis = np.array([this.Evaluate(dict(zip(w, xi))) for this in basis])
-    this_xxd = (xi@xi)**d
+    this_xxd = (np.array(xi)@np.array(xi))**d
     psi = np.vstack([psi, this_basis])
     xxd.append(this_xxd)
   	

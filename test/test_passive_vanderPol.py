@@ -16,6 +16,8 @@ def main(args=None):
   rho = find_passive_roa(model)
   rho = find_passive_roa_sample(model, -3, 3)
   # rho2 = find_roa_simulation_2d(model, ZeroPolicy(m))  
-
+  print("You could run it again to get better results\n")
 if __name__ == '__main__':
   main()
+ 
+  
