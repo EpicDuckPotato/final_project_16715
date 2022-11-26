@@ -93,8 +93,8 @@ class NLinkCartpole(object):
     T = np.zeros((self.nq + self.nv, self.nx_minimal), dtype=Expression)
     T[0, 0] = 1
     for i in range(self.N):
-      T[1 + i, 1 + i] = -q[1 + 2*i + 1] # Deriv of cos = -sin
-      T[1 + N + i, 1 + i] = q[1 + 2*i] # Deriv of sin = cos
+      T[1 + i, 1 + i] = -q[1 + self.N + i] # Deriv of cos = -sin
+      T[1 + self.N + i, 1 + i] = q[1 + i] # Deriv of sin = cos
     T[-self.nv:, -self.nv:] = np.eye(self.nv, dtype=Expression)
     return T
 
