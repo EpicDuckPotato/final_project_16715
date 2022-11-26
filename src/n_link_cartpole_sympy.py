@@ -2,6 +2,7 @@ import sympy.physics.mechanics as me
 import sympy as sm
 import numpy as np
 from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian, Expression, Monomial
+from pydrake.symbolic import *
 from itertools import combinations_with_replacement
 
 class NLinkCartpole(object):
@@ -73,8 +74,28 @@ class NLinkCartpole(object):
     B = sm.matrix2numpy(F_B, dtype=float)
     return A, B
 
+  def generate_drake_variables(self):
+    q_pris = MakeVectorContinuousVariable(1, 'q_pris')
+    c_rev = MakeVectorContinuousVariable(self.N, 'c_rev')
+    s_rev = MakeVectorContinuousVariable(self.N, 's_rev')
+    v = MakeVectorContinuousVariable(1 + self.N, 'v')
+    vdot = MakeVectorContinuousVariable(1 + self.N, 'vdot')
+    u = MakeVectorContinuousVariable(self.N, 'u')
+    return np.concatenate((q_pris, c_rev, s_rev)), v, vdot, u
+
+  # transform from [qdot; vdot] = T*[v; vdot], where q = [q0, c1, s1, c2, s2, ...]
+  def get_T(self, q):
+    nv = 1 + self.N
+    T = np.zeros((1 + 2*self.N + nv, 2*nv), dtype=Expression)
+    T[0, 0] = 1
+    for i in range(self.N):
+      T[1 + i, 1 + i] = -q[1 + 2*i + 1] # Deriv of cos = -sin
+      T[1 + N + i, 1 + i] = q[1 + 2*i] # Deriv of sin = cos
+    T[-nv:, -nv:] = np.eye(nv, dtype=Expression)
+    return T
+
   # Converts from sympy to Drake
-  def get_drake_constraints(self, q_pris, c_rev, s_rev, v, vdot, u):
+  def get_drake_constraints(self, q, v, vdot, u):
     nq = 1 + self.N
     nv = nq
 
@@ -87,7 +108,7 @@ class NLinkCartpole(object):
     sm_vars = config_vars + v_vars + vdot_vars + self.u
 
     # Create corresponding list of drake variables
-    drake_vars = np.concatenate(([q_pris], c_rev, s_rev, v, vdot, u))
+    drake_vars = np.concatenate((q, v, vdot, u))
     var_idx = np.arange(len(drake_vars))
 
     # We'll be substituting cosines and sines with auxiliary configuration variables
@@ -129,12 +150,17 @@ class NLinkCartpole(object):
           drake_basis.append(Monomial({drake_vars[idx]: powers[idx] for idx in var_idx}))
           sm_basis.append(np.prod([sm_vars[idx]**powers[idx] for idx in var_idx]))
 
-    # M*vdot - f = 0
-    drake_constraints = np.zeros(nv, dtype=Expression)
+    # Acceleration constraints: M*vdot - f = 0
+    acc_constraints = np.zeros(nv, dtype=Expression)
     for i in range(nv):
       poly = sm.Poly(sm_constraints[i], sm_vars)
       for drake_monom, sm_monom in zip(drake_basis, sm_basis):
         coeff = poly.coeff_monomial(sm_monom)
-        drake_constraints[i] += coeff*drake_monom
+        acc_constraints[i] += (coeff*drake_monom).ToExpression()
 
-    return drake_constraints
+    # Trig constraints, s^2 + c^2 - 1 = 0
+    trig_constraints = np.zeros(self.N, dtype=Expression)
+    for i in range(self.N):
+      trig_constraints[i] = q[1 + i]**2 + q[1 + self.N + i]**2 - 1
+
+    return np.concatenate((trig_constraints, acc_constraints))

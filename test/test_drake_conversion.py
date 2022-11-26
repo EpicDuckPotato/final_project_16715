@@ -18,34 +18,31 @@ def main(args=None):
   model = NLinkCartpole(N, link_length, link_mass)
   n, m = model.get_dim()
 
-  q_pris = MakeVectorContinuousVariable(1, 'q_pris')[0]
-  c_rev = MakeVectorContinuousVariable(N, 'c')
-  s_rev = MakeVectorContinuousVariable(N, 's')
-  v = MakeVectorContinuousVariable(1 + N, 'v')
-  vdot = MakeVectorContinuousVariable(1 + N, 'vdot')
-  u = MakeVectorContinuousVariable(N, 'u')
-
-  constraints = model.get_drake_constraints(q_pris, c_rev, s_rev, v, vdot, u)
-
   # Try out random inputs, make sure that the result of evaluating the sympy dynamics satisfies
   # the drake constraints
-  x_vals = np.random.normal(size=(n,))
+  x_vals_minimal = np.random.normal(size=(n,))
   u_vals = np.random.normal(size=(m,))
-  xdot_vals = model.dynamics(x_vals, u_vals)
+  xdot_vals_minimal = model.dynamics(x_vals_minimal, u_vals)
 
-  q_vals = x_vals[:n//2]
-  v_vals = x_vals[n//2:]
-  vdot_vals = xdot_vals[n//2:]
-  c_vals = [np.cos(qi) for qi in q_vals[1:]]
-  s_vals = [np.sin(qi) for qi in q_vals[1:]]
+  q, v, vdot, u = model.generate_drake_variables()
+  constraints = model.get_drake_constraints(q, v, vdot, u)
+
+  q_vals_minimal = x_vals_minimal[:n//2]
+  v_vals = x_vals_minimal[n//2:]
+  vdot_vals = xdot_vals_minimal[n//2:]
+  c_vals = [np.cos(qi) for qi in q_vals_minimal[1:]]
+  s_vals = [np.sin(qi) for qi in q_vals_minimal[1:]]
+
+  subs_dict = {q[0]: q_vals_minimal[0]}
+  subs_dict.update({c: c_val for c, c_val in zip(q[1:1 + N], c_vals)})
+  subs_dict.update({s: s_val for s, s_val in zip(q[1 + N:1 + 2*N], s_vals)})
+
+  subs_dict.update({vi: v_val for vi, v_val in zip(v, v_vals)})
+  subs_dict.update({vdoti: vdot_val for vdoti, vdot_val in zip(vdot, vdot_vals)})
+  subs_dict.update({ui: u_val for ui, u_val in zip(u, u_vals)})
+
   for constraint in constraints:
-    subs_dict = {q_pris: q_vals[0]}
-    subs_dict.update({c: c_val for c, c_val in zip(c_rev, c_vals)})
-    subs_dict.update({s: s_val for s, s_val in zip(s_rev, s_vals)})
-    subs_dict.update({vi: v_val for vi, v_val in zip(v, v_vals)})
-    subs_dict.update({vdoti: vdot_val for vdoti, vdot_val in zip(vdot, vdot_vals)})
-    subs_dict.update({ui: u_val for ui, u_val in zip(u, u_vals)})
-    print(constraint.ToExpression().Substitute(subs_dict).Evaluate())
+    print(constraint.Substitute(subs_dict).Evaluate())
 
 if __name__ == '__main__':
   main()
