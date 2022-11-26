@@ -4,19 +4,24 @@ import numpy as np
 from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian, Expression, Monomial
 from pydrake.symbolic import *
 from itertools import combinations_with_replacement
+from scipy.linalg import solve_continuous_are, expm
 
 class NLinkCartpole(object):
   def __init__(self, N, link_length, link_mass):
     self.N = N
-    self.nx = 2 + 2*N
+    self.nq = 1 + 2*self.N
+    self.nv = 1 + self.N
+    self.nq_minimal = self.nv
+    self.nx = self.nq + self.nv
+    self.nx_minimal = 2*self.nv
     self.nu = N
 
     g = 9.81
     t = sm.symbols('t')
 
-    self.q = me.dynamicsymbols('q:{}'.format(N + 1)) # Generalized coordinates
-    self.qdot = me.dynamicsymbols('qdot:{}'.format(N + 1)) # Generalized velocities
-    self.u = me.dynamicsymbols('u:{}'.format(N)) # Input forces (none for the last joint)
+    self.q = me.dynamicsymbols('q:{}'.format(self.nq_minimal)) # Generalized coordinates
+    self.qdot = me.dynamicsymbols('qdot:{}'.format(self.nv)) # Generalized velocities
+    self.u = me.dynamicsymbols('u:{}'.format(self.nu)) # Input forces (none for the last joint)
 
     I = me.ReferenceFrame('I') # Inertial reference frame
     O = me.Point('O') # Origin point
@@ -57,14 +62,14 @@ class NLinkCartpole(object):
     self.forcing_fn = sm.lambdify(dynamics_vars, self.kane.forcing)
 
   def get_dim(self):
-    return self.nx, self.nu
+    return self.nx_minimal, self.nu
 
   # u actuates the cart, and all revolute joints except the last (top) one
   def dynamics(self, x, u):
-    xdot = np.zeros(self.nx)
-    xdot[:self.nx//2] = np.copy(x[self.nx//2:])
+    xdot = np.zeros(self.nx_minimal)
+    xdot[:self.nv] = np.copy(x[self.nv:])
     xu = np.concatenate((x, u))
-    xdot[self.nx//2:] = np.linalg.solve(self.mass_matrix_fn(*xu), self.forcing_fn(*xu)).flatten()
+    xdot[self.nv:] = np.linalg.solve(self.mass_matrix_fn(*xu), self.forcing_fn(*xu)).flatten()
     return xdot
 
   def lin_dynamics(self, x, u):
@@ -85,26 +90,22 @@ class NLinkCartpole(object):
 
   # transform from [qdot; vdot] = T*[v; vdot], where q = [q0, c1, s1, c2, s2, ...]
   def get_T(self, q):
-    nv = 1 + self.N
-    T = np.zeros((1 + 2*self.N + nv, 2*nv), dtype=Expression)
+    T = np.zeros((self.nq + self.nv, self.nx_minimal), dtype=Expression)
     T[0, 0] = 1
     for i in range(self.N):
       T[1 + i, 1 + i] = -q[1 + 2*i + 1] # Deriv of cos = -sin
       T[1 + N + i, 1 + i] = q[1 + 2*i] # Deriv of sin = cos
-    T[-nv:, -nv:] = np.eye(nv, dtype=Expression)
+    T[-self.nv:, -self.nv:] = np.eye(self.nv, dtype=Expression)
     return T
 
   # Converts from sympy to Drake
   def get_drake_constraints(self, q, v, vdot, u):
-    nq = 1 + self.N
-    nv = nq
-
     # Create list of sympy variables
-    cos_vars = [sm.Symbol('c' + str(i)) for i in range(1, nq)]
-    sin_vars = [sm.Symbol('s' + str(i)) for i in range(1, nq)]
+    cos_vars = [sm.Symbol('c' + str(i + 1)) for i in range(self.N)]
+    sin_vars = [sm.Symbol('s' + str(i + 1)) for i in range(self.N)]
     config_vars = [self.q[0]] + cos_vars + sin_vars
     v_vars = self.qdot
-    vdot_vars = [sm.Symbol('vdot' + str(i)) for i in range(nv)]
+    vdot_vars = [sm.Symbol('vdot' + str(i)) for i in range(self.nv)]
     sm_vars = config_vars + v_vars + vdot_vars + self.u
 
     # Create corresponding list of drake variables
@@ -112,16 +113,16 @@ class NLinkCartpole(object):
     var_idx = np.arange(len(drake_vars))
 
     # We'll be substituting cosines and sines with auxiliary configuration variables
-    cos_subs = [(sm.cos(self.q[i]), 'c' + str(i)) for i in range(1, nq)]
-    sin_subs = [(sm.sin(self.q[i]), 's' + str(i)) for i in range(1, nq)]
+    cos_subs = [(sm.cos(self.q[i + 1]), 'c' + str(i + 1)) for i in range(self.N)]
+    sin_subs = [(sm.sin(self.q[i + 1]), 's' + str(i + 1)) for i in range(self.N)]
     trig_subs = cos_subs + sin_subs
 
-    sm_constraints = [-self.kane.forcing[i].subs(trig_subs) for i in range(nv)]
+    sm_constraints = [-self.kane.forcing[i].subs(trig_subs) for i in range(self.nv)]
 
     # Get sympy constraints and max degree of any polynomial expression in the dynamics
     max_deg = 0
-    for i in range(nv):
-      for j in range(nv):
+    for i in range(self.nv):
+      for j in range(self.nv):
         sm_constraints[i] += self.kane.mass_matrix[i, j].subs(trig_subs)*vdot_vars[j]
 
       poly = sm.Poly(sm_constraints[i], sm_vars)
@@ -131,8 +132,8 @@ class NLinkCartpole(object):
     # Create bases for sympy and drake
     drake_basis = []
     sm_basis = []
-    v_start = 1 + 2*self.N
-    vdot_start = v_start + nv
+    v_start = self.nq
+    vdot_start = v_start + self.nv
     for d in range(max_deg + 1):
       combs = combinations_with_replacement([idx for idx in var_idx], r=d) # Unordered
       for p in combs:
@@ -151,8 +152,8 @@ class NLinkCartpole(object):
           sm_basis.append(np.prod([sm_vars[idx]**powers[idx] for idx in var_idx]))
 
     # Acceleration constraints: M*vdot - f = 0
-    acc_constraints = np.zeros(nv, dtype=Expression)
-    for i in range(nv):
+    acc_constraints = np.zeros(self.nv, dtype=Expression)
+    for i in range(self.nv):
       poly = sm.Poly(sm_constraints[i], sm_vars)
       for drake_monom, sm_monom in zip(drake_basis, sm_basis):
         coeff = poly.coeff_monomial(sm_monom)
@@ -164,3 +165,38 @@ class NLinkCartpole(object):
       trig_constraints[i] = q[1 + i]**2 + q[1 + self.N + i]**2 - 1
 
     return np.concatenate((trig_constraints, acc_constraints))
+
+  def trig_lqr(self):
+    # LQR in minimal coordinates
+    A, B = self.lin_dynamics(np.zeros(self.nx_minimal), np.zeros(self.nu))
+    Q = np.eye(self.nx_minimal)
+    R = np.eye(self.nu)
+    S = solve_continuous_are(A, B, Q, R)
+    K = np.linalg.solve(R, B.transpose()@S)
+
+    # Convert to trigonometric coordinates
+    Ktrig = np.zeros((self.nu, self.nq + self.nv))
+    Ktrig[:, 0] = K[:, 0]
+    Ktrig[:, -self.nv:] = K[:, -self.nv:]
+    Strig = np.zeros((self.nq + self.nv, self.nq + self.nv))
+    Strig[-self.nv:, -self.nv:] = S[-self.nv:, -self.nv:]
+    Strig[0, 0] = S[0, 0]
+
+    # Columns corresponding to theta in minimal coordinates correspond to sin(theta) in trig coordinates
+    Ktrig[:, 1 + self.N:self.nq] = K[:, 1:self.nv]
+
+    # (q_pris, sin)
+    Strig[0, 1 + self.N:self.nq] = S[0, 1:self.nv]
+    # (sin, q_pris)
+    Strig[1 + self.N:self.nq, 0] = S[1:self.nv, 0]
+
+    # (sin, sin)
+    Strig[1 + self.N:self.nq, 1 + self.N:self.nq] = S[1:self.nv, 1:self.nv]
+
+    # (sin, v)
+    Strig[1 + self.N:self.nq, self.nq:self.nx] = S[1:self.nv, self.nq_minimal:self.nx_minimal]
+
+    # (v, sin)
+    Strig[self.nq:self.nx, 1 + self.N:self.nq] = S[self.nq_minimal:self.nx_minimal, 1:self.nv]
+
+    return Strig, Ktrig, S, K
