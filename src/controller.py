@@ -185,6 +185,32 @@ def find_lqr_roa_implicit(model, MAX_ITER=50):
   print('Finished original ROA search with rho = %f' %(rho))
   return rho
 
+def find_lqr_roa_implicit_sample(model, MAX_ITER=50):
+  n, m = model.get_dim()
+
+  Strig, Ktrig, _, _ = model.trig_lqr()
+
+  q, v, vdot, u = model.generate_drake_variables()
+  x = np.concatenate((q, v))
+  xdot_minimal = np.concatenate((v, vdot))
+  w = np.concatenate((x, xdot_minimal))
+  T = model.get_T(q)
+  e_constraints = model.get_drake_constraints(q, v, vdot, u)
+
+  # Substitute lqr controller for u
+  subs_dict = {u[i]: Ktrig[i]@x for i in range(m)}
+  for i in range(len(e_constraints)):
+    e_constraints[i] = e_constraints[i].Substitute(subs_dict)
+
+  V = Polynomial(np.dot(x, Strig@x))
+  dV = Polynomial(2*np.dot(x, Strig@T@xdot_minimal))
+
+  e_constraints = np.concatenate(([dV.ToExpression()], e_constraints))
+
+  rho = check_sos_sample_multiple_eqns(V, e_constraints, w, -3, 3)
+
+  return rho
+
 def find_passive_roa(model, MAX_ITER=50, taylor_expand=False):
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
   dxg = np.array([0, 0])  # derivative at x goal

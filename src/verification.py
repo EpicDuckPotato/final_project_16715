@@ -165,7 +165,6 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
     if len(samples) >= num_samples:
       break
     samples.extend(sample_isocontours(sym_Vdot.ToExpression(), w, num_samples, xlb, xub, std=1))
-    # samples.extend(sample_vector_isocontours(np.array([sym_Vdot.ToExpression()]), w, num_samples, std=1))
 
   d = 1
   deg = sym_V.TotalDegree() + 2*d
@@ -191,6 +190,41 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
 
   return rho
 
+# Check SOS with sampling method, but now we have multiply polynomial equations
+def check_sos_sample_multiple_eqns(sym_V, eqns, w, xlb=-100, xub=100):
+  # Step 1: get samples from eqn(x) = 0 for eqn in eqns
+  samples = []
+  num_samples = 5
+  # num_samples = 100
+  for i in range(num_samples):
+    if len(samples) >= num_samples:
+      break
+    samples.extend(sample_vector_isocontours(eqns, w, num_samples, xlb, xub, std=1))
+
+  d = 1
+  deg = sym_V.TotalDegree() + 2*d
+  
+  # Get V(xi) values
+  enough_sample = False
+  while not enough_sample:
+    samples.extend(sample_vector_isocontours(eqns, w, 1, xlb, xub, std=1))
+    V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
+    samples, V = balancing_V(samples, V)
+    xxd, psi = get_sample_features(w, deg, d, samples)
+    enough_sample = check_genericity(psi) 
+    print('here')
+
+  samples = np.array(samples)
+  print(f"Number of samples: {len(samples)}")  
+  # plt.scatter(samples[:, 0], samples[:, 1])
+  # plt.xlim(-2.1, 2.1)
+  # plt.ylim(-3, 3)
+  # plt.show()
+  # Step 2: solve SDP on samples
+
+  rho = solve_SDP_samples(V, psi, xxd)
+
+  return rho
 
 # Solve SDP with samples
 def solve_SDP_samples(V, basis, xxd):
@@ -219,37 +253,6 @@ def solve_SDP_samples(V, basis, xxd):
     rho_sol = rho.level()[0]
 
   return rho_sol
-
-
-def sample_isocontours(f, xvars, num_samples, std=1):
-  nx = len(xvars)
-  samples = []
-  for i in range(num_samples):
-    # Search direction
-    alpha = np.random.normal(size=(nx,), scale=std)
-    beta = np.random.normal(size=(nx,), scale=std)
-    t = MakeVectorContinuousVariable(1, 't')[0]
-    subs_dict = {xvars[j]: alpha[j]*t + beta[j] for j in range(nx)}
-    f_t = Polynomial(f.Substitute(subs_dict))
-    monom_to_coeff = f_t.monomial_to_coefficient_map()
-    coeffs = []
-    for j in range(f_t.TotalDegree() + 1):
-      p = Monomial(t, j)
-      if p in monom_to_coeff:
-        coeffs.append(monom_to_coeff[p].Evaluate())
-      else:
-        coeffs.append(0)
-
-    roots = np.polynomial.polynomial.polyroots(coeffs)
-    for root in roots:
-      if np.abs(np.imag(root)) < 1e-5:
-        x = alpha*np.real(root) + beta
-        if np.linalg.norm(x, ord=np.inf) < 100:
-          samples.append(x)
-          # print(f.Substitute({xvars[j]: x[j] for j in range(nx)}))
-
-  return samples
-
 
 # Get samples of Vdot(x) = 0 to feed into SDP
 def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
@@ -283,7 +286,7 @@ def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
 
 
 # f should now be a vector of Drake expressions. This applies Newton's method
-def sample_vector_isocontours(f, xvars, num_samples, std=1):
+def sample_vector_isocontours(f, xvars, num_samples, xlb=-100, xub=100, std=1):
   nx = len(xvars)
   samples = []
   for i in range(num_samples):
@@ -320,7 +323,7 @@ def sample_vector_isocontours(f, xvars, num_samples, std=1):
 
         alpha *= 0.5
 
-    if success:
+    if success and np.all(x >= xlb) and np.all(x <= xub):
       samples.append(x)
 
   return samples
