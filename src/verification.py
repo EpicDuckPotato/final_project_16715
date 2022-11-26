@@ -20,102 +20,128 @@ np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
 
 
-# check_sos: finds a set of Lagrange multiplier polynomials [la_1, la_2, ..., la_n]
-# to make the total polynomial L = poly_0 - la_1*poly_1 - ... la_n*poly_n SOS
+# check_sos: finds a set of Lagrange multiplier polynomials [ila_1, ila_2, ..., ila_n, ela_1, ..., ela_m]
+# to make the total polynomial L = poly_0 - ila_1*ipoly_1 - ... ila_n*ipoly_n - ela_1*epoly1 -, ... ela_m*epoly_m SOS
 # ARGUMENTS
 # poly0, object of class pydrake.symbolic.Polynomial
 # w: a numpy array, where each element of the array is a pydrake.symbolic.Variable.
-# constraint_poly: list of constraint polynomials [poly_1, ... poly_n]
-# la_degrees: list of degrees for Lagrange multiplier polynomials [deg_la_1, ... deg_la_n]
-# la_sos: list indicating whether this multiplier should be SOS. If the constraint
-# is an inequality constraint, it should be SOS. Otherwise, it shouldn't be.
+# i_constraint_poly: list of inequality constraint polynomials [poly_1, ... poly_n]
+# i_la_degrees: list of degrees for inequality constraint Lagrange multiplier polynomials [deg_la_1, ... deg_la_n]
+# e_constraint_poly: list of equality constraint polynomials [epoly_1, ... epoly_m]
+# e_la_degrees: list of degrees for equality constraint Lagrange multiplier polynomials [deg_ela_1, ... deg_ela_m]
 # All polynomials should be functions of w
 # RETURN: True/False indicating whether we could find a set of
 # Lagrange multiplier polynomials to make the total polynomial L SOS
-def check_sos(poly0, w, constraint_poly=[], la_degrees=[], la_sos=[]):
-	# TODO: this only handles SOS multipliers for now, so we couldn't do equality constraints
-	multipliers = [] # List of multiplier polynomials (lambdas)
-	multiplier_Qs = [] # Matrix for each lambda
-	num_multiplier_basis = [] # Basis size for each lambda
-	for i, (deg_la, poly) in enumerate(zip(la_degrees, constraint_poly)):
-		# Build basis of each Lagrange multiplier, starting from bias value 1
-		basis_la = get_basis(w, deg_la)
-		
-		num_basis_la = len(basis_la)
-		num_multiplier_basis.append(num_basis_la)
-		Q_la = MakeMatrixContinuousVariable(num_basis_la, num_basis_la,'Q_la' + str(i))
-		multiplier_Qs.append(Q_la)
-		multipliers.append(Polynomial(basis_la@Q_la@basis_la, w))
+def check_sos(poly0, w, i_constraint_poly=[], i_la_degrees=[], e_constraint_poly=[], e_la_degrees=[]):
+  # TODO: this only handles SOS multipliers for now, so we couldn't do equality constraints
+  i_multipliers = [] # List of inequality multiplier polynomials (lambdas)
+  i_multiplier_Qs = [] # Matrix for each lambda
+  num_i_multiplier_basis = [] # Basis size for each lambda
+  for i, (deg_la, poly) in enumerate(zip(i_la_degrees, i_constraint_poly)):
+    # Build basis of each Lagrange multiplier, starting from bias value 1
+    basis_la = get_basis(w, deg_la)
+    
+    num_basis_la = len(basis_la)
+    num_i_multiplier_basis.append(num_basis_la)
+    Q_la = MakeMatrixContinuousVariable(num_basis_la, num_basis_la,'Q_la' + str(i))
+    i_multiplier_Qs.append(Q_la)
+    i_multipliers.append(Polynomial(basis_la@Q_la@basis_la, w))
 
-	# Build basis of L, starting from bias value 1
-	deg_L = np.max([poly0.TotalDegree()] + [deg_la + poly.TotalDegree() for deg_la, poly in zip(la_degrees, constraint_poly)])
-	if deg_L%2 == 1:
-		# If the polynomial is odd, it can't be SOS, so we automatically return False
-		return False  
-	
-	basis = get_basis(w, deg_L)
-	num_basis = len(basis)
-	Q_L = MakeMatrixContinuousVariable(num_basis, num_basis, 'Q_L')
-	L = poly0 - sum([la*poly for la, poly in zip(multipliers, constraint_poly)])
-	wQw = Polynomial(basis@Q_L@basis, w)
+  e_multipliers = [] # List of equality multiplier polynomials (lambdas)
+  e_multiplier_Vs = [] # Coefficient vector for each lambda
+  num_e_multiplier_basis = [] # Basis size for each lambda
+  for i, (deg_la, poly) in enumerate(zip(e_la_degrees, e_constraint_poly)):
+  	# Build basis of each Lagrange multiplier, starting from bias value 1
+  	basis_la = get_basis(w, 2*deg_la)
+  	
+  	num_basis_la = len(basis_la)
+  	num_e_multiplier_basis.append(num_basis_la)
+  	V_la = MakeVectorContinuousVariable(num_basis_la,'V_la' + str(i))
+  	e_multiplier_Vs.append(V_la)
+  	e_multipliers.append(Polynomial(V_la@basis_la, w))
+  
+  # Build basis of L, starting from bias value 1
+  deg_L = np.max([poly0.TotalDegree()] + \
+                 [deg_la + poly.TotalDegree() for deg_la, poly in zip(i_la_degrees, i_constraint_poly)] + \
+                 [deg_la + poly.TotalDegree() for deg_la, poly in zip(e_la_degrees, e_constraint_poly)])
+  
+  basis = get_basis(w, deg_L)
+  num_basis = len(basis)
+  Q_L = MakeMatrixContinuousVariable(num_basis, num_basis, 'Q_L')
+  L = poly0 - \
+      sum([la*poly for la, poly in zip(i_multipliers, i_constraint_poly)]) - \
+      sum([la*poly for la, poly in zip(e_multipliers, e_constraint_poly)])
+  wQw = Polynomial(basis@Q_L@basis, w)
+  
+  # Dicts where keys are monomials, values are coefficients
+  mon2coef_L_dict = L.monomial_to_coefficient_map()
+  mon2coef_wQw_dict = wQw.monomial_to_coefficient_map()   
+  
+  with Model("sdo1") as M:
+    # PSD matrix variable for LHS
+    Q_L_mosek = M.variable(Domain.inPSDCone(num_basis))
+    
+    # PSD matrix variables for RHS ineq lambdas
+    i_multiplier_Qs_mosek = []
+    
+    # Vector variables for RHS eq lambdas
+    e_multiplier_Vs_mosek = []
+    
+    for num_basis_la in num_i_multiplier_basis:
+      i_multiplier_Qs_mosek.append(M.variable(Domain.inPSDCone(num_basis_la)))
+    
+    for e, num_basis_la in enumerate(num_e_multiplier_basis):
+      e_multiplier_Vs_mosek.append(M.variable('V' + str(e), num_basis_la))
+    
+    # Now we set up constraints such that the coefficients of w@Q@w equal the coefficients of L
+    cidx = 0
+    for monom, coef in mon2coef_wQw_dict.items():
+      # coeff is what multiplies the monomial in w@Q@w. It's a linear combination of elements of Q, e.g.
+      # a00*Q[0, 0] + a01*Q[1, 1] + ...
+      # Here, we get the coefficients a00, a01 to set up the LHS of our constraint.
+      C_Q_L = np.reshape([coef.Differentiate(q).Evaluate() for q in Q_L.flatten()], Q_L.shape)  
 
-	# Dicts where keys are monomials, values are coefficients
-	mon2coef_L_dict = L.monomial_to_coefficient_map()
-	mon2coef_wQw_dict = wQw.monomial_to_coefficient_map()   
+      # Now we get the RHS, i.e. const + a00*i_Qla[0, 0] + a01*i_Qla[1, 1] + ... + b0*e_Vla[0] + b1*e_Vla[1] + ... = RHS 
+      i_C_multipliers = []
+      e_C_multipliers = []
+      const = 0.0
+      if monom in mon2coef_L_dict:
+        coef_L = mon2coef_L_dict[monom]
+        for Q_la in i_multiplier_Qs:
+          C_Q_la = np.reshape([coef_L.Differentiate(q).Evaluate() for q in Q_la.flatten()], Q_la.shape)  
+          i_C_multipliers.append(C_Q_la)
 
-	with Model("sdo1") as M:
-		# PSD matrix variable for LHS
-		Q_L_mosek = M.variable(Domain.inPSDCone(num_basis))
+        for V_la in e_multiplier_Vs:
+          C_V_la = np.reshape([coef_L.Differentiate(v).Evaluate() for v in V_la], (-1, 1))
+          e_C_multipliers.append(C_V_la)
 
-		# PSD matrix variables for RHS lambdas
-		multiplier_Qs_mosek = []
+        mon2coef_this_dict = Polynomial(coef_L).monomial_to_coefficient_map()
+        if Monomial() in mon2coef_this_dict:
+          const = mon2coef_this_dict[Monomial()]
+          const = const.Evaluate()
 
-		for num_basis_la in num_multiplier_basis:
-			multiplier_Qs_mosek.append(M.variable(Domain.inPSDCone(num_basis_la)))
+      # Constraints: equalize the coefficients
+      LHS = Expr.dot(Matrix.dense(C_Q_L), Q_L_mosek)
+      RHS = Expr.constTerm(const)
+      for C_Q_la, Q_la_mosek in zip(i_C_multipliers, i_multiplier_Qs_mosek):
+        RHS = Expr.add(RHS, Expr.dot(Matrix.dense(C_Q_la), Q_la_mosek))
+      for C_V_la, V_la_mosek in zip(e_C_multipliers, e_multiplier_Vs_mosek):
+        RHS = Expr.add(RHS, Expr.dot(Matrix.dense(C_V_la), V_la_mosek))
+      M.constraint(Expr.sub(LHS, RHS), Domain.equalsTo(0))
 
-		# Now we set up constraints such that the coefficients of w@Q@w equal the coefficients of L
-		cidx = 0
-		for monom, coef in mon2coef_wQw_dict.items():
-			# coeff is what multiplies the monomial in w@Q@w. It's a linear combination of elements of Q, e.g.
-			# a00*Q[0, 0] + a01*Q[1, 1] + ...
-			# Here, we get the coefficients a00, a01 to set up the LHS of our constraint.
-			C_Q_L = np.reshape([coef.Differentiate(q).Evaluate() for q in Q_L.flatten()], Q_L.shape)  
+      # TODO: optimize code
+      # do not have to evaluate full matrix because Qmosek is symmetric
 
-			# Now we get the RHS, i.e. const + a00*Qla[0, 0] + a01*Qla[1, 1] + ... = RHS 
-			C_multipliers = []
-			const = 0.0
-			if monom in mon2coef_L_dict:
-				coef_L = mon2coef_L_dict[monom]
-				for Q_la in multiplier_Qs:
-					C_Q_la = np.reshape([coef_L.Differentiate(q).Evaluate() for q in Q_la.flatten()], Q_la.shape)  
-					C_multipliers.append(C_Q_la)
+      cidx += 1
 
-				mon2coef_this_dict = Polynomial(coef_L).monomial_to_coefficient_map()
-				if Monomial() in mon2coef_this_dict:
-					const = mon2coef_this_dict[Monomial()]
-					const = const.Evaluate()
+    M.solve()
 
-			# Constraints: equalize the coefficients
-			LHS = Expr.dot(Matrix.dense(C_Q_L), Q_L_mosek)
-			RHS = Expr.constTerm(const)
-			for C_Q_la, Q_la_mosek in zip(C_multipliers, multiplier_Qs_mosek):
-				RHS = Expr.add(RHS, Expr.dot(Matrix.dense(C_Q_la), Q_la_mosek))
-			M.constraint(Expr.sub(LHS, RHS), Domain.equalsTo(0))
+    status = M.getPrimalSolutionStatus()
 
-			# TODO: optimize code
-			# do not have to evaluate full matrix because Qmosek is symmetric
-
-			cidx += 1
-
-		M.solve()
-
-		status = M.getPrimalSolutionStatus()
-
-		if status == SolutionStatus.Optimal:
-			return True
-		else:
-			return False
-
+    if status == SolutionStatus.Optimal:
+      return True
+    else:
+      return False
 
 # Generate monomials                
 def get_basis(w, deg):

@@ -9,7 +9,7 @@ from n_link_cartpole_sympy import *
 from controller import *
 
 def main(args=None):
-  N = 5 # Number of revolute joints. There is always one prismatic joint, controlling the cart
+  N = 1 # Number of revolute joints. There is always one prismatic joint, controlling the cart
   link_length = 1
   link_mass = 1
 
@@ -42,6 +42,8 @@ def main(args=None):
   plt.plot(xhist[0,:],xhist[1,:])
   plt.plot(xgoal[0], xgoal[1], color='g', marker="*", markersize=10)
   plt.show()
+
+  find_lqr_roa_implicit(model)
 
 if __name__ == '__main__':
   main()
