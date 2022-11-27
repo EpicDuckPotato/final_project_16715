@@ -193,7 +193,6 @@ def find_lqr_roa_implicit_sample(model, MAX_ITER=50):
   q, v, vdot, u = model.generate_drake_variables()
   x = np.concatenate((q, v))
   xdot_minimal = np.concatenate((v, vdot))
-  w = np.concatenate((x, xdot_minimal))
   T = model.get_T(q)
   e_constraints = model.get_drake_constraints(q, v, vdot, u)
 
@@ -207,7 +206,7 @@ def find_lqr_roa_implicit_sample(model, MAX_ITER=50):
 
   e_constraints = np.concatenate(([dV.ToExpression()], e_constraints))
 
-  rho = check_sos_sample_multiple_eqns(V, e_constraints, w, -3, 3)
+  rho = check_sos_sample_multiple_eqns(V, e_constraints, q, v, vdot, -3, 3)
 
   return rho
 

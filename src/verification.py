@@ -191,15 +191,18 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
   return rho
 
 # Check SOS with sampling method, but now we have multiply polynomial equations
-def check_sos_sample_multiple_eqns(sym_V, eqns, w, xlb=-100, xub=100):
+def check_sos_sample_multiple_eqns(sym_V, eqns, q, v, vdot, xlb=-100, xub=100):
   # Step 1: get samples from eqn(x) = 0 for eqn in eqns
   samples = []
   num_samples = 5
   # num_samples = 100
+  w = np.concatenate((q, v, vdot))
+  qv = np.concatenate((q, v)) # These are the only variables we need in our basis
   for i in range(num_samples):
     if len(samples) >= num_samples:
       break
-    samples.extend(sample_vector_isocontours(eqns, w, num_samples, xlb, xub, std=1))
+    w_samples = sample_vector_isocontours(eqns, w, num_samples, xlb, xub, std=1)
+    samples.extend([w[:qv.shape[0]] for w in w_samples])
 
   d = 1
   deg = sym_V.TotalDegree() + 2*d
@@ -207,19 +210,20 @@ def check_sos_sample_multiple_eqns(sym_V, eqns, w, xlb=-100, xub=100):
   # Get V(xi) values
   enough_sample = False
   while not enough_sample:
-    samples.extend(sample_vector_isocontours(eqns, w, 1, xlb, xub, std=1))
-    V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
+    w_samples = sample_vector_isocontours(eqns, w, 1, xlb, xub, std=1)
+    samples.extend([w[:qv.shape[0]] for w in w_samples])
+    V = np.array([sym_V.Evaluate(dict(zip(qv, xi))) for xi in samples])
     samples, V = balancing_V(samples, V)
-    xxd, psi = get_sample_features(w, deg, d, samples)
+    xxd, psi = get_sample_features(qv, deg, d, samples)
     enough_sample = check_genericity(psi) 
-    print('here')
+    print(len(samples))
 
   samples = np.array(samples)
   print(f"Number of samples: {len(samples)}")  
-  # plt.scatter(samples[:, 0], samples[:, 1])
-  # plt.xlim(-2.1, 2.1)
-  # plt.ylim(-3, 3)
-  # plt.show()
+  plt.scatter(samples[:, 0], samples[:, 2])
+  plt.xlim(-2.1, 2.1)
+  plt.ylim(-3, 3)
+  plt.show()
   # Step 2: solve SDP on samples
 
   rho = solve_SDP_samples(V, psi, xxd)
