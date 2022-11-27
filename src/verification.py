@@ -220,10 +220,10 @@ def check_sos_sample_multiple_eqns(sym_V, eqns, q, v, vdot, xlb=-100, xub=100):
 
   samples = np.array(samples)
   print(f"Number of samples: {len(samples)}")  
-  plt.scatter(samples[:, 0], samples[:, 2])
-  plt.xlim(-2.1, 2.1)
-  plt.ylim(-3, 3)
-  plt.show()
+  # plt.scatter(samples[:, 0], samples[:, 2])
+  # plt.xlim(-2.1, 2.1)
+  # plt.ylim(-3, 3)
+  # plt.show()
   # Step 2: solve SDP on samples
 
   rho = solve_SDP_samples(V, psi, xxd)
@@ -334,6 +334,10 @@ def sample_vector_isocontours(f, xvars, num_samples, xlb=-100, xub=100, std=1):
 
 
 def balancing_V(x, V, tol=5):
+  if len(V) == 0:
+    print('Terminating V balancing because there are no samples')
+    return x, V
+
   balanced = np.max(V) / np.min(V) < tol
   while not balanced:
     # print('not balanced')
@@ -341,11 +345,17 @@ def balancing_V(x, V, tol=5):
     # test_x = np.vstack([test_x, x[idx]])
     x = (np.delete(x, idx, axis=0)).tolist()
     V = np.delete(V, idx, axis=0)
-    balanced = np.max(V) / np.min(V) < tol
+    balanced = len(V) == 0 or np.max(V) / np.min(V) < tol
+    if len(V) == 0:
+      print('Discarded all samples while balancing')
   return x, V
 
 
 def get_sample_features(w, deg, d, samples):
+  if len(samples) == 0:
+    print('Could not get sample features because there are no samples')
+    return [], np.zeros((0, 0))
+
   basis = get_basis(w, deg)
   num_basis = len(basis)
   psi = np.zeros((num_basis,))
@@ -356,14 +366,16 @@ def get_sample_features(w, deg, d, samples):
     this_xxd = (np.array(xi)@np.array(xi))**d
     psi = np.vstack([psi, this_basis])
     xxd.append(this_xxd)
-  	
+  
   psi = psi[1:]
   xxd = xxd[1:]    
   return xxd, psi
 
-
 def check_genericity(psi):
   enough_samples = True
+  if len(psi) == 0:
+    print('Checked genericity and found zero samples')
+    return False
   m, n = psi.shape
   n2 = n * (n + 1) / 2
   m0 = np.min([m, n2])

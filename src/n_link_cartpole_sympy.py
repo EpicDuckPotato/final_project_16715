@@ -13,7 +13,7 @@ class NLinkCartpole(object):
     self.nv = 1 + self.N
     self.nq_minimal = self.nv
     self.nx = self.nq + self.nv
-    self.nx_minimal = 2*self.nv
+    self.nx_minimal = self.nq_minimal + self.nv
     self.nu = N
 
     g = 9.81
