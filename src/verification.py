@@ -145,14 +145,14 @@ def check_sos(poly0, w, i_constraint_poly=[], i_la_degrees=[], e_constraint_poly
 
 # Generate monomials                
 def get_basis(w, deg):
-	# w is variables
-	# deg is degree of polynomial
-	basis = [Expression(1)] 
-	for d in range(1, deg//2 + 1):
-		combs = combinations_with_replacement([Expression(wi) for wi in w], r=d) # Unordered
-		for p in combs:
-			basis.append(np.prod(p))
-	return basis
+  # w is variables
+  # deg is degree of polynomial
+  basis = [Expression(1)] 
+  for d in range(1, deg//2 + 1):
+    combs = combinations_with_replacement([Expression(wi) for wi in w], r=d) # Unordered
+    for p in combs:
+      basis.append(np.prod(p))
+  return basis
 
 
 # Check SOS with sampling method
@@ -176,7 +176,9 @@ def check_sos_sample(sym_V, sym_Vdot, w, xlb=-100, xub=100):
     V = np.array([sym_V.Evaluate(dict(zip(w, xi))) for xi in samples])
     samples, V = balancing_V(samples, V)
     xxd, psi = get_sample_features(w, deg, d, samples)
-    enough_sample = check_genericity(psi) 
+    # enough_sample = check_genericity(psi) 
+    trans_psi, T = coordinate_ring_transform(psi, True, False)
+    enough_sample = check_genericity(trans_psi)
 
   samples = np.array(samples)
   print(f"Number of samples: {len(samples)}")  
@@ -216,14 +218,16 @@ def check_sos_sample_multiple_eqns(sym_V, eqns, q, v, vdot, xlb=-100, xub=100):
     samples, V = balancing_V(samples, V)
     xxd, psi = get_sample_features(qv, deg, d, samples)
     enough_sample = check_genericity(psi) 
+    # trans_psi, T = coordinate_ring_transform(psi, True, False)
+    # enough_sample = check_genericity(trans_psi)
     print(len(samples))
 
   samples = np.array(samples)
   print(f"Number of samples: {len(samples)}")  
-  # plt.scatter(samples[:, 0], samples[:, 2])
-  # plt.xlim(-2.1, 2.1)
-  # plt.ylim(-3, 3)
-  # plt.show()
+  plt.scatter(samples[:, 3], samples[:, 4])
+  plt.xlim(-2.1, 2.1)
+  plt.ylim(-3, 3)
+  plt.show()
   # Step 2: solve SDP on samples
 
   rho = solve_SDP_samples(V, psi, xxd)
@@ -393,3 +397,45 @@ def check_genericity(psi):
     # print('Insufficient samples!!')
     enough_samples = False
   return enough_samples
+
+def coordinate_ring_transform(psi, do_transform, test_only):
+  """reduce the dimensionality of the sampled-monimials by taking advantage
+  of the coordiate ring structure (similar to Gaussian elimination used in
+  finding Grobner basis)
+
+  Args:
+      psi: (num_samples, monomial_dim)
+      U =psi.T (monomial_dim, num_samples)
+      [u,s,v] = svd(U)
+      n = # of non-zero values in s
+      U= T@U_transformed, where
+      for testing, standard_monomial = T * reduced_basis, or
+      pinv(T)@standard_monomial = reduced_basis
+
+  Returns:
+      transformed_basis (num_samples, reduced_monomials)
+      T (reduced_monomials, monomial_dim)
+  """
+  if test_only or not do_transform:
+    return psi, np.eye(psi.shape[1])
+  U = psi.T
+  [u, diag_s, v] = np.linalg.svd(U)
+  tol = np.amax(U.shape) * diag_s[0] * 1e-16
+  original_monomial_dim, num_samples = U.shape
+  n = sum(diag_s > tol)
+  print('original_monomial_dim is %s' % original_monomial_dim)
+  print('rank for SVD %s' % n)
+  print('coordinate_ring_transform for %s samples' % num_samples)
+  if n / original_monomial_dim >= .95:
+    # print('no need for transformation')
+    return U.T, np.eye(original_monomial_dim)
+  else:
+    print('does transforming')
+    s = np.zeros(U.shape)
+    np.fill_diagonal(s, diag_s)
+    U_transformed = v[:n, :]
+    T = u@s[:, :n]
+    T = np.linalg.pinv(T)
+    transformed_basis = U_transformed.T
+    assert np.allclose(T@U, U_transformed)
+    return transformed_basis, T
