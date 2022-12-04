@@ -10,8 +10,8 @@ from controller import *
 def main(args=None):
   model = Pendulum()
 
-  # find_lqr_roa_implicit(model)
-  find_lqr_roa_implicit_sample(model)
+  find_lqr_roa_implicit(model)
+  # find_lqr_roa_implicit_sample(model)
 
 if __name__ == '__main__':
   main()

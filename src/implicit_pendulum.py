@@ -53,13 +53,12 @@ class Pendulum(object):
     T[-self.nv:, -self.nv:] = np.eye(self.nv, dtype=Expression)
     return T
 
-  # Converts from sympy to Drake
   def get_drake_constraints(self, q, v, vdot, u):
     # Acceleration constraint, then trig constraint
     constraints = np.zeros(2, dtype=Expression)
 
     # Acceleration constraint
-    constraints[0] = u[0] - v[0] - q[1]
+    constraints[0] = u[0] - v[0] + q[1] - vdot[0]
 
     # Trig constraint, s^2 + c^2 - 1 = 0
     constraints[1] = q[0]**2 + q[1]**2 - 1

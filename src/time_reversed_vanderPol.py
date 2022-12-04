@@ -5,6 +5,7 @@ https://openmdao.github.io/dymos/examples/vanderpol/vanderpol.html
 import numpy as np
 from pydrake.symbolic import cos, sin
 from pydrake.all import MathematicalProgram, Solve, Polynomial, Variables, Jacobian
+from pydrake.symbolic import *
 
 class TimeReversedVanderPol(object):
   def __init__(self, mu=1):
@@ -45,6 +46,7 @@ class TimeReversedVanderPol(object):
     A[1, 1] = x0^2 - 1
 
     return A, B
+
   def sym_dynamics(self, state, policy, t=0):
     u = policy.get_u(state, t)
     x0 = state[0]
@@ -52,3 +54,23 @@ class TimeReversedVanderPol(object):
     dx0 = -x1
     dx1 = -(1 - x0**2)*x1 + x0
     return np.array([dx0, dx1])
+
+  def get_T(self, q):
+    T = np.eye(self.n, dtype=Expression)
+    return T
+
+  def generate_drake_variables(self):
+    q = MakeVectorContinuousVariable(1, 'q')
+    v = MakeVectorContinuousVariable(1, 'v')
+    vdot = MakeVectorContinuousVariable(1, 'vdot')
+    u = MakeVectorContinuousVariable(self.m, 'u')
+    return q, v, vdot, u
+
+  def get_drake_constraints(self, q, v, vdot, u):
+    # Acceleration constraint, then trig constraint
+    constraints = np.zeros(1, dtype=Expression)
+
+    # Acceleration constraint
+    constraints[0] = -(1 - q[0]**2)*v[0] + q[0] - vdot[0]
+
+    return constraints

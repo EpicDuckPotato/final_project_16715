@@ -140,14 +140,14 @@ def find_lqr_roa_implicit(model, MAX_ITER=50):
   e_constraints = model.get_drake_constraints(q, v, vdot, u)
 
   # Substitute lqr controller for u
-  subs_dict = {u[i]: Ktrig[i]@x for i in range(m)}
+  subs_dict = {u[i]: -Ktrig[i]@x for i in range(m)}
   for i in range(len(e_constraints)):
     e_constraints[i] = Polynomial(e_constraints[i].Substitute(subs_dict))
 
   V = Polynomial(np.dot(x, Strig@x))
   dV = Polynomial(2*np.dot(x, Strig@T@xdot_minimal))
   i_la_degs = [2]
-  e_la_degs = [2]*len(e_constraints)
+  e_la_degs = [3]*len(e_constraints)
 
   rho = 5
   rho_prev = 0.0
@@ -197,7 +197,7 @@ def find_lqr_roa_implicit_sample(model, MAX_ITER=50):
   e_constraints = model.get_drake_constraints(q, v, vdot, u)
 
   # Substitute lqr controller for u
-  subs_dict = {u[i]: Ktrig[i]@x for i in range(m)}
+  subs_dict = {u[i]: -Ktrig[i]@x for i in range(m)}
   for i in range(len(e_constraints)):
     e_constraints[i] = e_constraints[i].Substitute(subs_dict)
 
@@ -265,6 +265,61 @@ def find_passive_roa(model, MAX_ITER=50, taylor_expand=False):
   print('Finished ROA search with rho = %f' %(rho))
   return rho
   
+def find_passive_roa_implicit(model, MAX_ITER=50):
+  n, m = model.get_dim()
+
+  q, v, vdot, u = model.generate_drake_variables()
+  x = np.concatenate((q, v))
+  xdot_minimal = np.concatenate((v, vdot))
+  w = np.concatenate((x, xdot_minimal))
+  T = model.get_T(q)
+  e_constraints = model.get_drake_constraints(q, v, vdot, u)
+
+  # Substitute 0 for u
+  subs_dict = {u[i]: 0 for i in range(m)}
+  for i in range(len(e_constraints)):
+    e_constraints[i] = Polynomial(e_constraints[i].Substitute(subs_dict))
+
+  V = Polynomial(model.known_V(x))
+  dV = Polynomial(sum([V.ToExpression().Differentiate(x[i])*T[i]@xdot_minimal for i in range(n)]))
+  i_la_degs = [2]
+  e_la_degs = [3]*len(e_constraints)
+
+  rho = 5
+  rho_prev = 0.0
+  TOL_RHO = 1e-3
+  lower = 0.0
+  i = 0
+  # Find a bracket of rho
+  is_sos = check_sos(-dV, w, [rho - V], i_la_degs, e_constraints, e_la_degs)
+  while is_sos:
+    rho = rho*2
+    is_sos = check_sos(-dV, w, [rho - V], i_la_degs, e_constraints, e_la_degs)
+  upper = rho
+  rho = (lower + upper)/2
+  # line search
+  while (rho - rho_prev) > TOL_RHO:
+    if i > MAX_ITER:
+      break
+
+    print('ROA search iteration %d, testing rho = %f' %(i, rho))
+    is_sos = check_sos(-dV, w, [rho - V], i_la_degs, e_constraints, e_la_degs)
+
+    if is_sos:
+      lower = rho
+    else:
+      upper = rho
+
+    rho_prev = lower
+    rho = (lower + upper)/2
+    i += 1
+
+  if lower == 0:
+    print('No region of attraction')
+
+  rho = lower
+  print('Finished original ROA search with rho = %f' %(rho))
+  return rho
 
 def find_passive_roa_sample(model, xlb, xub, taylor_expand=False):
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
