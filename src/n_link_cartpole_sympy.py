@@ -199,4 +199,10 @@ class NLinkCartpole(object):
     # (v, sin)
     Strig[self.nq:self.nx, 1 + self.N:self.nq] = S[self.nq_minimal:self.nx_minimal, 1:self.nv]
 
+    # (qpris, v)
+    Strig[0, self.nq:self.nx] = S[0, self.nq_minimal:self.nx_minimal]
+
+    # (v, qpris)
+    Strig[self.nq:self.nx, 0] = S[self.nq_minimal:self.nx_minimal, 0]
+
     return Strig, Ktrig, S, K
