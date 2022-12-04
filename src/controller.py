@@ -135,7 +135,7 @@ def find_lqr_roa_implicit(model, MAX_ITER=50):
   q, v, vdot, u = model.generate_drake_variables()
   x = np.concatenate((q, v))
   xdot_minimal = np.concatenate((v, vdot))
-  w = np.concatenate((x, xdot_minimal))
+  w = np.concatenate((q, v, vdot))
   T = model.get_T(q)
   e_constraints = model.get_drake_constraints(q, v, vdot, u)
 
@@ -155,10 +155,13 @@ def find_lqr_roa_implicit(model, MAX_ITER=50):
   lower = 0.0
   i = 0
   # Find a bracket of rho
+  print('finding bracket')
   is_sos = check_sos(-dV, w, [rho - V], i_la_degs, e_constraints, e_la_degs)
   while is_sos:
+    print('increasing rho')
     rho = rho*2
     is_sos = check_sos(-dV, w, [rho - V], i_la_degs, e_constraints, e_la_degs)
+  print('found bracket')
   upper = rho
   rho = (lower + upper)/2
   # line search
@@ -271,7 +274,7 @@ def find_passive_roa_implicit(model, MAX_ITER=50):
   q, v, vdot, u = model.generate_drake_variables()
   x = np.concatenate((q, v))
   xdot_minimal = np.concatenate((v, vdot))
-  w = np.concatenate((x, xdot_minimal))
+  w = np.concatenate((q, v, vdot))
   T = model.get_T(q)
   e_constraints = model.get_drake_constraints(q, v, vdot, u)
 
