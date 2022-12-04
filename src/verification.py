@@ -15,6 +15,7 @@ from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
 from itertools import combinations_with_replacement
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
@@ -106,7 +107,8 @@ def check_sos(poly0, w, constraint_poly=[], la_degrees=[], la_sos=[]):
 			# do not have to evaluate full matrix because Qmosek is symmetric
 
 			cidx += 1
-
+		M.setLogHandler(sys.stdout)            # Add logging       
+		M.writeTask("original.ptf")                # Save problem in readable format
 		M.solve()
 
 		status = M.getPrimalSolutionStatus()
@@ -182,6 +184,8 @@ def solve_SDP_samples(V, basis, xxd):
       M.constraint(r, Domain.equalsTo(0))
 
     M.objective(ObjectiveSense.Maximize, rho)
+    M.setLogHandler(sys.stdout)            # Add logging
+    M.writeTask("sample.ptf")                # Save problem in readable format
     M.solve()
 
     status = M.getPrimalSolutionStatus()
@@ -227,6 +231,7 @@ def sample_isocontours(f, xvars, num_samples, std=1):
 
 # Get samples of Vdot(x) = 0 to feed into SDP
 def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
+  np.random.seed(0)
   nx = len(xvars)
   samples = []
   for i in range(num_samples):
