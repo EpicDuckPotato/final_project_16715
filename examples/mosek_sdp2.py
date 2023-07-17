@@ -56,7 +56,8 @@ with Model('sdo2') as M:
     M.constraint(X2.index([0,1]), Domain.lessThan(k))
 
     # Solve
-    # M.setLogHandler(sys.stdout)
+    M.setLogHandler(sys.stdout)            # Add logging       
+    M.writeTask("sdp2.ptf")                # Save problem in readable format
     M.solve()
 
     # Retrieve result

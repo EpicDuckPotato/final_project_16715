@@ -1,5 +1,6 @@
 import mosek
 from   mosek.fusion import *
+import sys
 
 def main(args=None):
   with Model("sdo1") as M:
@@ -19,7 +20,8 @@ def main(args=None):
     # Constraints
     M.constraint("c1", Expr.add(Expr.dot(A1, X), x.index(0)), Domain.equalsTo(1.0))
     M.constraint("c2", Expr.add(Expr.dot(A2, X), Expr.sum(x.slice(1,3))), Domain.equalsTo(0.5))
-
+    M.setLogHandler(sys.stdout)            # Add logging?
+    M.writeTask("original.ptf")                # Save problem in readable format
     M.solve()
 
     print(X.level())

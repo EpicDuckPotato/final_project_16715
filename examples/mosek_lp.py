@@ -1,4 +1,5 @@
 from mosek.fusion import *
+import sys
 
 def main(args=None):
   A = [[3.0, 1.0, 2.0, 0.0],
@@ -19,7 +20,8 @@ def main(args=None):
 
     # Set the objective function to (c^t * x)
     M.objective("obj", ObjectiveSense.Maximize, Expr.dot(c, x))
-
+    M.setLogHandler(sys.stdout)            # Add logging?
+    M.writeTask("original.ptf")                # Save problem in readable format
     # Solve the problem
     M.solve()
 

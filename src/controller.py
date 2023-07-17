@@ -6,6 +6,7 @@ import numpy as np
 from pydrake.symbolic import *
 from verification import *
 import matplotlib.pyplot as plt
+import time
 
 class ZeroPolicy(object):
   def __init__(self, nu):
@@ -214,6 +215,7 @@ def find_lqr_roa_implicit_sample(model, MAX_ITER=50):
   return rho
 
 def find_passive_roa(model, MAX_ITER=50, taylor_expand=False):
+  start = time.time()
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
   dxg = np.array([0, 0])  # derivative at x goal
   n, m = model.get_dim()
@@ -265,7 +267,8 @@ def find_passive_roa(model, MAX_ITER=50, taylor_expand=False):
     print('No region of attraction')
 
   rho = lower
-  print('Finished ROA search with rho = %f' %(rho))
+  end = time.time()
+  print('Finished ROA search with rho = %f, within %.3f seconds' %(rho, end-start))
   return rho
   
 def find_passive_roa_implicit(model, MAX_ITER=50):
@@ -325,6 +328,7 @@ def find_passive_roa_implicit(model, MAX_ITER=50):
   return rho
 
 def find_passive_roa_sample(model, xlb, xub, taylor_expand=False):
+  start = time.time()
   deg_Taylor = 3  # order of Taylor expansion of xerrdot
   n, m = model.get_dim()
   # Construct Lyapunov function: V and dV
@@ -339,7 +343,8 @@ def find_passive_roa_sample(model, xlb, xub, taylor_expand=False):
   dV = Polynomial(sum([V.ToExpression().Differentiate(xerr[i])*xerrdot[i] for i in range(n)]))
 
   rho = check_sos_sample(V, dV, xerr, xlb, xub)
-  print('Finished quotient-ring ROA search with rho = %f' %(rho))
+  end = time.time()
+  print('Finished quotient-ring ROA search with rho = %f, within %.3f seconds' %(rho, (end-start)))
   return rho
 
 
@@ -363,9 +368,10 @@ def find_roa_sample(model, policy):
 
 
 def find_roa_simulation_2d(model, policy):
+  start = time.time()
   n, m = model.get_dim()
   dt = 0.1
-  N = 500
+  N = 100
   steps = 300
   xs_eval = np.zeros((n, N))
 
@@ -410,21 +416,22 @@ def find_roa_simulation_2d(model, policy):
   x_bnd = [xs_eval[0,col], xs_eval[1,row]]
   print(x_bnd)
   rho = model.known_V(x_bnd)
-  print('Finished simulation-based ROA search with rho = %f' %(rho))
+  end = time.time()
+  print('Finished simulation-based ROA search with rho = %f, within %.3f' %(rho, end-start))
 
-  image = np.zeros((N, N, 3))
-  image[stable_idx] = 1
+  # image = np.zeros((N, N, 3))
+  # image[stable_idx] = 1
 
-  plt.imshow(image, extent=[np.min(xs_eval[0,:]), np.max(xs_eval[0,:]), 
-            np.min(xs_eval[1,:]), np.max(xs_eval[1,:])], 
-            aspect='auto', origin='lower')
+  # plt.imshow(image, extent=[np.min(xs_eval[0,:]), np.max(xs_eval[0,:]), 
+  #           np.min(xs_eval[1,:]), np.max(xs_eval[1,:])], 
+  #           aspect='auto', origin='lower')
   
-  plt.scatter(N, N, color='white', label='Simulation-based ROA Estimate')
-  plt.xlim(np.min(xs_eval[0,:]), np.max(xs_eval[0,:]))
-  plt.ylim(np.min(xs_eval[1,:]), np.max(xs_eval[1,:]))
-  plt.legend() 
-  plt.savefig('conservativity.png')
-  # plt.show()
+  # plt.scatter(N, N, color='white', label='Simulation-based ROA Estimate')
+  # plt.xlim(np.min(xs_eval[0,:]), np.max(xs_eval[0,:]))
+  # plt.ylim(np.min(xs_eval[1,:]), np.max(xs_eval[1,:]))
+  # plt.legend() 
+  # plt.savefig('conservativity.png')
+  # # plt.show()
 
   return rho
 

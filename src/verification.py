@@ -15,6 +15,7 @@ from pydrake.all import (Polynomial, Variable, Evaluate, Substitute,
 from itertools import combinations_with_replacement
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 np.set_printoptions(linewidth=np.inf)
 np.set_printoptions(suppress=True)
@@ -250,6 +251,8 @@ def solve_SDP_samples(V, basis, xxd):
       M.constraint(r, Domain.equalsTo(0))
 
     M.objective(ObjectiveSense.Maximize, rho)
+    M.setLogHandler(sys.stdout)            # Add logging
+    M.writeTask("sample.ptf")                # Save problem in readable format
     M.solve()
 
     status = M.getPrimalSolutionStatus()
@@ -264,6 +267,7 @@ def solve_SDP_samples(V, basis, xxd):
 
 # Get samples of Vdot(x) = 0 to feed into SDP
 def sample_isocontours(f, xvars, num_samples, xlb, xub, std=1):
+  np.random.seed(0)
   nx = len(xvars)
   samples = []
   for i in range(num_samples):
@@ -336,7 +340,7 @@ def sample_vector_isocontours(f, xvars, num_samples, xlb=-100, xub=100, std=1):
 
   return samples
 
-
+# Taken from https://github.com/shensquared/veril
 def balancing_V(x, V, tol=5):
   if len(V) == 0:
     print('Terminating V balancing because there are no samples')
@@ -355,6 +359,7 @@ def balancing_V(x, V, tol=5):
   return x, V
 
 
+# Taken from https://github.com/shensquared/veril
 def get_sample_features(w, deg, d, samples):
   if len(samples) == 0:
     print('Could not get sample features because there are no samples')
@@ -375,6 +380,7 @@ def get_sample_features(w, deg, d, samples):
   xxd = xxd[1:]    
   return xxd, psi
 
+# Taken from https://github.com/shensquared/veril
 def check_genericity(psi):
   enough_samples = True
   if len(psi) == 0:
