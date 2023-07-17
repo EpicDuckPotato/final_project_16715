@@ -304,7 +304,7 @@ def sample_vector_isocontours(f, xvars, num_samples, std=1):
 
   return samples
 
-
+# Taken from https://github.com/shensquared/veril
 def balancing_V(x, V, tol=5):
   balanced = np.max(V) / np.min(V) < tol
   while not balanced:
@@ -317,6 +317,7 @@ def balancing_V(x, V, tol=5):
   return x, V
 
 
+# Taken from https://github.com/shensquared/veril
 def get_sample_features(w, deg, d, samples):
   basis = get_basis(w, deg)
   num_basis = len(basis)
@@ -334,6 +335,7 @@ def get_sample_features(w, deg, d, samples):
   return xxd, psi
 
 
+# Taken from https://github.com/shensquared/veril
 def check_genericity(psi):
   enough_samples = True
   m, n = psi.shape
